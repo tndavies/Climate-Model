@@ -3,56 +3,34 @@
 #include <span.h>
 #include <cmath>
 
-float CalcDeclinationAngle(float obliquity, float angular_velocity, float t)
+#define Radians(x) (0.01745329252f * x)
+
+float calc_declination(float obliquity, float omega, float t)
 {
-	const float PhaseShift = 1.57079632679490f; // pi/2.
-	
-	float sine_decl = -std::sinf(obliquity) * std::cosf(angular_velocity * t + PhaseShift);
+	const float obliquity_term = -std::sinf( Radians(obliquity) );
+	const float orbit_term = std::sinf(omega * t);
+	const float sine_decl = obliquity_term * orbit_term;
 
-	return std::asinf(sine_decl);
-}
-
-float CalcHalfDayLength(float latitude_band, float declination)
-{
-	float cosine_H = -std::tanf(latitude_band) * std::tanf(declination);
-
-	return std::acosf(cosine_H);
-}
-
-float CalcAveragedSolarFlux(float declination, float latitude_band, float half_day_length)
-{
-	const float prefactor = 432.90144521f; // (flux @ 1 Au) / pi.
-	
-	const float term0 = half_day_length * std::sinf(latitude_band) * std::sinf(declination);
-	const float term1 = std::cosf(latitude_band) * std::cosf(declination) * std::sinf(half_day_length);
-
-	return prefactor * (term0 + term1);
+	return sine_decl; // small angle approx.
 }
 
 int main(int argc, char* argv[])
 {
-	// Earth's orbital parameters.
-	const float Obliquity = 23.5f;
-	const float Omega = 1.983e-10f; 
+	const float Earth_Obliquity = 23.45f;
+	const float Earth_AngVel = 1.98226e-7f;
+	const float Year = 3e7; // 1 year in seconds
 
-	ValueSpan lats(-90, 90, 10);
-	ValueSpan times(0, 3e8, 1e5);
+	const size_t MonthlySampleRate = 3;
+	ValueSpan times(0, Year, Year / (12.0f * MonthlySampleRate));
 
-	Datapack flux_data;
+	Datapack pack;
 
-	for (const auto& lat : lats) 
-	{
-		for (const auto& t : times) {
-
-			float decl = CalcDeclinationAngle(Obliquity, Omega, t);
-			float half_day = CalcHalfDayLength(lat, decl);
-			float S = CalcAveragedSolarFlux(decl, lat, half_day);
-
-			flux_data.add(t, S);
-		}
+	for (const auto& t : times) {
+		float decl = calc_declination(Earth_Obliquity, Earth_AngVel, t);
+		pack.add(t, decl);
 	}
 
-	flux_data.dump("test.dp", "time (x) vs Diurnally averaged incident solar flux (y).");
+	pack.dump("datapacks/declination.dp", "declination angle vs. time");
 
 	return(0);
 }

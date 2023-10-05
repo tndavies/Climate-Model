@@ -2,8 +2,9 @@
 # exposing the comment (if present), and datapoints.
 class Datapack:
 	def __init__(self, datapack_name):
-		self._data = [] # empty array of datapoints. 
 		self._src = datapack_name
+		self.Xdata = [] 
+		self.Ydata = [] 
 		self.desc = ""
 
 		self.load()
@@ -20,9 +21,10 @@ class Datapack:
 		for s in contents:
 			arr = s.split(",")
 			
-			x = arr[0]
-			y = arr[1].strip("\n") # remove line feed.
+			x = float( arr[0] )
+			y = float( arr[1].strip("\n") ) # remove line feed.
 			
-			self._data.append( (float(x),float(y)) )
+			self.Xdata.append(x)
+			self.Ydata.append(y)
 
 		datapack_file.close()

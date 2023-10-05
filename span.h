@@ -4,7 +4,7 @@
 
 struct ValueSpan
 {
-	ValueSpan(float min, float max, float step) {
+	ValueSpan(float min, float max, float step = 1) {
 		auto l = min;
 		while (l < max) {
 			m_Latitudes.push_back(l);
