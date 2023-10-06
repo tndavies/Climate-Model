@@ -21,10 +21,14 @@ class Datapack:
 		for s in contents:
 			arr = s.split(",")
 			
-			x = float( arr[0] )
-			y = float( arr[1].strip("\n") ) # remove line feed.
+			try:
+				x = float( arr[0] )
+				y = float( arr[1].strip("\n") ) # remove line feed.
 			
-			self.Xdata.append(x)
-			self.Ydata.append(y)
+				self.Xdata.append(x)
+				self.Ydata.append(y)
+			except:
+				# print("Warning: Couldn't parse a datapoint, missing it out.")
+				pass
 
 		datapack_file.close()
