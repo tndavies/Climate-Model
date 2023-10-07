@@ -51,8 +51,8 @@ int main(int argc, char* argv[])
 #endif
 
 	ValueSpan latitudes(-90, 90, 10);
-	const size_t MonthlySampleRate = 1e3;
-	size_t pack_id = 0;
+	const size_t MonthlySampleRate = 1e2;
+	size_t pack_id = 1;
 	
 	for (const auto& lat : latitudes) 
 	{
@@ -76,9 +76,6 @@ int main(int argc, char* argv[])
 
 		pack.dump(pack_name, pack_title);
 	}
-
-	// Q: what does t=0 coresspond to?
-	// Q: how to fix half day length Nans?
 
 	return(0);
 }

@@ -3,9 +3,9 @@
 class Datapack:
 	def __init__(self, datapack_name):
 		self._src = datapack_name
-		self.Xdata = [] 
-		self.Ydata = [] 
 		self.desc = ""
+		self.xs = [] 
+		self.ys = [] 
 
 		self.load()
 
@@ -25,8 +25,8 @@ class Datapack:
 				x = float( arr[0] )
 				y = float( arr[1].strip("\n") ) # remove line feed.
 			
-				self.Xdata.append(x)
-				self.Ydata.append(y)
+				self.xs.append(x)
+				self.ys.append(y)
 			except:
 				# print("Warning: Couldn't parse a datapoint, missing it out.")
 				pass
