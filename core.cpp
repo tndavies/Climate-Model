@@ -2,41 +2,10 @@
 #include <iostream>
 #include <span.h>
 #include <cmath>
-
-#define Radians(x) (0.01745329252f * x)
-
-float calc_declination(float obliquity, float omega, float t)
-{
-	const float obliquity_term = -std::sinf( Radians(obliquity) );
-	const float orbit_term = std::sinf(omega * t);
-	const float sine_decl = obliquity_term * orbit_term;
-
-	return std::asinf(sine_decl); // @speed: can we use small angle approx?
-}
-
-float calc_half_day(float latitude, float declination)
-{
-	const auto f1 = -std::tanf(Radians(latitude));
-	const auto f2 = std::tanf(declination);
-	const float cosine_hd = f1 * f2;
-
-	return std::acosf(cosine_hd);
-}
-
-float calc_diurnal_flux(float latitude, float declination, float half_day)
-{
-	const float prefactor = 432.90144521f; // Q_Naught / pi.
-	const float term0 = half_day * std::sinf(Radians(latitude)) * std::sinf(declination);
-	const float term1 = std::cosf(Radians(latitude)) * std::cosf(declination) * std::sinf(half_day);
-
-	return prefactor * (term0 + term1);
-}
+#include <sim.h>
 
 int main(int argc, char* argv[])
 {
-	const float Earth_Obliquity = 23.45f;
-	const float Earth_AngVel = 1.98226e-7f;
-	const float Year = 3e7; // 1 year in seconds
 
 #ifdef DATAPACK_DECLINATION
 	const size_t MonthlySampleRate = 3;
@@ -50,8 +19,10 @@ int main(int argc, char* argv[])
 	pack.dump("datapacks/declination.dp", "declination angle vs. time");
 #endif
 
+	const float Year = 3.154e7; // 1 year in seconds
+	const size_t MonthlySampleRate = 1e3;
+	
 	ValueSpan latitudes(-90, 90, 10);
-	const size_t MonthlySampleRate = 1e2;
 	size_t pack_id = 1;
 	
 	for (const auto& lat : latitudes) 
@@ -61,10 +32,7 @@ int main(int argc, char* argv[])
 		ValueSpan times(0, Year, Year / (12.0f * MonthlySampleRate));
 		for (const auto& t : times) {
 
-			const float decl = calc_declination(Earth_Obliquity, Earth_AngVel, t);
-			const float half_day = calc_half_day(lat, decl); // @fix: we have a Nan issue here!
-			const float flux = calc_diurnal_flux(lat, decl, half_day);
-
+			const float flux = Sim::Calc_DiurnalSolarFlux(lat, Sim::Calc_Declination(t));
 			pack.add(t, flux);
 		}
 		
