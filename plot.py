@@ -6,8 +6,8 @@ import numpy as np
 Datapack_Count = 19
 include_list = [i for i in range(1, Datapack_Count+1)]
 
-heatmap = [[False] * n for y in range(0, n)]
 n = int(np.ceil(np.sqrt(Datapack_Count)))
+heatmap = [[False] * n for y in range(0, n)]
 fig, axes = plt.subplots(n,n)
 
 fig.suptitle("Plots of S(t) for various latitudes, in " + r"$10^\circ$" + "steps",
@@ -22,7 +22,7 @@ for pack_id in include_list:
 	data = Datapack("datapacks/" + fname + ".dp")
 
 	axis = axes[plot_y, plot_x]
-	axis.plot(data.xs, data.ys, ".")
+	axis.plot(data.xs, data.ys)
 
 	heatmap[plot_y][plot_x] = True
 
