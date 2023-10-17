@@ -70,6 +70,7 @@ def EvolveGlobalTemperatures(lats, initial_temps, duration_s):
 			for j, temp in enumerate(temps):
 				dTdt = eval_pde(lats, temps, j, t)
 				evolved_temp = temp + dTdt * TIME_STEP
+				assert(evolved_temp >= 0.0)
 				tbuff.append(evolved_temp)
 
 			data.append((tbuff, t))
