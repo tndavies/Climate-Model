@@ -2,6 +2,7 @@ from alive_progress import alive_bar
 import matplotlib.pyplot as plt
 from pde import grad, laplace
 import numpy as np
+import cmocean
 import flux
 
 # ======================================================== #
@@ -121,10 +122,11 @@ def GlobalTemperaturePlots(lats, data):
 			
 			arr = np.transpose(np.array([temps for n in range(lats.size)]))
 			plt.imshow(arr, origin="lower", 
-					interpolation="nearest",
+					interpolation="gaussian",
 					extent=[b0,b1,b0,b1],
 					vmin=initial_min_temp,
-					vmax=initial_max_temp)
+					vmax=initial_max_temp,
+					cmap=cmocean.cm.thermal)
 
 			plt.colorbar()
 
