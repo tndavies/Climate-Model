@@ -1,13 +1,15 @@
 import numpy as np
-import visualise
+import plots
 import pde
 
+import matplotlib.pyplot as plt
+
 # ============================================ #
+def foo(lat):
+		return (np.sin(lat)**2)*273.0
 
-lats = np.linspace(-np.pi/2,np.pi/2,60)
-ic = [np.pi/2-abs(k) for k in lats]
+lats = np.linspace(-np.pi/2,np.pi/2,15)
+ic = [foo(k) for k in lats]
 
-#data = pde.EvolveGlobalTemperatures(lats, ic, 6)
-#visualise.GenerateGlobalTemperaturePlots(lats, data)
-
-visualise.SolarFluxPlot()
+data = pde.EvolveGlobalTemperatures(lats, ic, 5)
+plots.GlobalTemperaturePlots(lats, data)

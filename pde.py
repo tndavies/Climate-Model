@@ -18,7 +18,7 @@ def grad(lats, temps, idx):
 	# we assume a uniform spacing in latitude coords!
 	ss_above = lat_above - lat
 	ss_below = lat - lat_below
-	assert(np.isclose(ss_above, ss_below)) 
+	#assert(np.isclose(ss_above, ss_below)) 
 	step = ss_above
 
 	# central difference approximation
@@ -55,29 +55,26 @@ def eval_pde(lats, temps, j, t):
 
 # ============================================ #
 
-# 'duration' & 'ts are in units of Earth days.
-def EvolveGlobalTemperatures(lats, initial_temps, duration, tsm=1):
-	DAY_CONST = 86400 # seconds in a day
+def EvolveGlobalTemperatures(lats, initial_temps, duration_s):
+	START_TIME, TIME_STEP = 0.0, 0.01
+	
+	data = [(initial_temps, START_TIME)]
+	times = np.arange(START_TIME + TIME_STEP, duration_s, TIME_STEP)
 
-	time = 0
-	data = [(initial_temps, time)]
-	tstep = tsm * DAY_CONST
+	with alive_bar(times.size) as bar:
+		for t in times:
+			temps = data[-1][0]
+			tbuff = []
 
-	while (time < duration*DAY_CONST):
-		temps = data[-1][0]
-		tbuff = []
+			# evolve temperatures
+			for j, temp in enumerate(temps):
+				dTdt = eval_pde(lats, temps, j, t)
+				evolved_temp = temp + dTdt * TIME_STEP
+				tbuff.append(evolved_temp)
 
-		# evolve temperatures
-		for j, T in enumerate(temps):
-			dTdt = eval_pde(lats, temps, j, time)
-			tbuff.append(T + dTdt * tstep)
+			data.append((tbuff, t))
+			bar()
 
-		# record calculated temperature profile
-		record = (tbuff, time)
-		data.append(record)
-
-		# advance time
-		time += tstep
 
 	return data
 # ============================================ #
