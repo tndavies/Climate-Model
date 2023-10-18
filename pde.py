@@ -1,5 +1,6 @@
 from alive_progress import alive_bar
 import numpy as np
+import flux
 
 # ============================================ #
 
@@ -45,13 +46,33 @@ def laplace(lats, temps, i):
 		return (temps[i+1] - 2*temps[i] + temps[i-1]) / (lats[i+1]-lat)**2
 
 # ============================================ #
+def Calculate_Albedo(T):
+	return 0.525 - 0.245 * np.tanh(0.2*T-53.6)
 
+def Calculate_IRCooling(T):
+	SIGMA = 5.670374419e-8
+	TauIR = 0.79 * np.power((T / 273), 3)
+	return (SIGMA * np.power(T, 4)) / (1 + 0.75 * TauIR)
+
+# ============================================ #
 def eval_pde(lats, temps, j, t):
 	lat = lats[j]
-	fos = grad(lats, temps, j)
-	sos = laplace(lats, temps, j)
+	latitude_temp = temps[j]
 
-	return sos - np.tan(lat) * fos
+	sd1 = grad(lats, temps, j)
+	sd2 = laplace(lats, temps, j)
+
+	Albedo = Calculate_Albedo(latitude_temp)
+	IR_Cooling = Calculate_IRCooling(latitude_temp)
+	Flux_In = flux.Calc_DiurnalFlux(lat, t)
+	Diffusivity = 0.5394
+	Heat_Capacity = 2.0
+
+	term0 = Flux_In * (1 - Albedo)
+	term1 = Diffusivity * (sd2 - np.tan(lat) * sd1)
+	term2 = IR_Cooling
+
+	return (term0 + term1 - term2) / Heat_Capacity
 
 # ============================================ #
 
@@ -60,6 +81,8 @@ def EvolveGlobalTemperatures(lats, initial_temps, duration_s):
 	
 	data = [(initial_temps, START_TIME)]
 	times = np.arange(START_TIME + TIME_STEP, duration_s, TIME_STEP)
+
+	print("Simulating Earth Atmosphere ...")
 
 	with alive_bar(times.size) as bar:
 		for t in times:
@@ -70,6 +93,7 @@ def EvolveGlobalTemperatures(lats, initial_temps, duration_s):
 			for j, temp in enumerate(temps):
 				dTdt = eval_pde(lats, temps, j, t)
 				evolved_temp = temp + dTdt * TIME_STEP
+
 				assert(evolved_temp >= 0.0)
 				tbuff.append(evolved_temp)
 
