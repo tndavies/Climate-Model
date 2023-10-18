@@ -14,9 +14,9 @@ def DeclinationPlot(dur):
 	decls = flux.Calc_Declination(times_s)
 
 	plt.figure()
-	plt.title("Declination Angle vs. time")
-	plt.xlabel("time [days]")
-	plt.ylabel("declination [deg]")
+	plt.title("Declination Angle vs. time", fontsize=20)
+	plt.xlabel("time [days]", fontsize=20)
+	plt.ylabel("declination [deg]", fontsize=20)
 
 	plt.plot(times_d, np.degrees(decls))
 	plt.grid()
@@ -27,7 +27,7 @@ def DeclinationPlot(dur):
 # ======================================================== #
 
 def SolarFluxPlot():
-	lats = [np.radians(k) for k in np.arange(-90,91,15)]
+	lats = [np.radians(k) for k in np.arange(-90,91,5)]
 	times = np.arange(0, 365)
 
 	fig, ax = plt.subplots(1, 2)
@@ -37,18 +37,17 @@ def SolarFluxPlot():
 		HemisphereID = 1 if (L >= -np.pi/2 and L <= 0) else 0
 
 		fluxes = [flux.Calc_DiurnalFlux(L, day) for day in times]
-		
-		ax[HemisphereID].plot(times, fluxes, label=lat_str)
+		ax[HemisphereID].plot(times, fluxes, "--", label=lat_str)
 
-	ax[0].set_title("Northen Hemisphere")
+	ax[0].set_title("Northen Hemisphere", fontsize=20)
 	ax[0].legend()
-	ax[0].set_xlabel("time [days]")
-	ax[0].set_ylabel("flux")
+	ax[0].set_xlabel("time [days]", fontsize=20)
+	ax[0].set_ylabel("flux", fontsize=20)
 	ax[0].grid()
 
-	ax[1].set_title("Southern Hemisphere")
-	ax[1].set_xlabel("time [days]")
-	ax[1].set_ylabel("flux")
+	ax[1].set_title("Southern Hemisphere", fontsize=20)
+	ax[1].set_xlabel("time [days]", fontsize=20)
+	ax[1].set_ylabel("flux", fontsize=20)
 	ax[1].legend()
 	ax[1].grid()
 
@@ -59,17 +58,19 @@ def SolarFluxPlot():
 
 def del_approximations(lats, ics):
 	analytic_col = (0.58, 0.85, 0.48)
-	LabelSize = 14
+	LabelSize = 20
 	thickness = 5.5
 
 	lats_deg = np.degrees(lats)
 	fig, ax = plt.subplots(3, 1)
+	fig.suptitle("Numerical vs. Analytic Derivatives for Initial Temperature Function", fontsize=LabelSize)
 
 	# ------------------------------------- #
 	axis = ax[0] 
-	axis.plot(lats_deg, ics, linewidth=thickness, color=analytic_col)
+	axis.plot(lats_deg, ics, label="initial conditions", linewidth=thickness, color=analytic_col)
 	axis.set_ylabel(r"$T(\lambda)$", fontsize=LabelSize)
 	axis.set_xlabel(r"$\lambda$", fontsize=LabelSize)
+	axis.legend()
 	axis.grid()
 	# ------------------------------------- #
 	grads = [grad(lats, ics, k) for k in range(len(lats))]
@@ -82,6 +83,7 @@ def del_approximations(lats, ics):
 	axis.plot(lats, grads, "-", label="numerical", color=(0,0,0))
 	axis.set_ylabel(r"$df/d\lambda$", fontsize=LabelSize)
 	axis.set_xlabel(r"$\lambda$", fontsize=LabelSize)
+	axis.legend()
 	axis.grid()
 	# ------------------------------------- #
 	laplaces = [laplace(lats, ics, k) for k in range(len(lats))]
@@ -94,6 +96,7 @@ def del_approximations(lats, ics):
 	axis.plot(lats, laplaces, "-", label="numerical", color=(0,0,0))
 	axis.set_ylabel(r"$d^2f/d\lambda^2$", fontsize=LabelSize)
 	axis.set_xlabel(r"$\lambda$", fontsize=LabelSize)
+	axis.legend()
 	axis.grid()
 	# ------------------------------------- #
 
