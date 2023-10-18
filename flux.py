@@ -10,8 +10,8 @@ def Calc_Declination(t_s):
 
 # ============================================ #
 
-def Calc_DiurnalFlux(lat, t_d):
-	decl = Calc_Declination(t_d * 86400)
+def Calc_DiurnalFlux(lat, t_s):
+	decl = Calc_Declination(t_s)
 	q0 = 1360.0
 
 	flux = 0.0

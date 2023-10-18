@@ -28,7 +28,7 @@ def DeclinationPlot(dur):
 
 def SolarFluxPlot():
 	lats = [np.radians(k) for k in np.arange(-90,91,5)]
-	times = np.arange(0, 365)
+	times = np.arange(0, 365*86400, 86400)
 
 	fig, ax = plt.subplots(1, 2)
 
@@ -37,7 +37,7 @@ def SolarFluxPlot():
 		HemisphereID = 1 if (L >= -np.pi/2 and L <= 0) else 0
 
 		fluxes = [flux.Calc_DiurnalFlux(L, day) for day in times]
-		ax[HemisphereID].plot(times, fluxes, "--", label=lat_str)
+		ax[HemisphereID].plot(times / 86400, fluxes, "--", label=lat_str)
 
 	ax[0].set_title("Northen Hemisphere", fontsize=20)
 	ax[0].legend()
@@ -105,7 +105,7 @@ def del_approximations(lats, ics):
 # ======================================================== #
 
 def GlobalTemperaturePlots(lats, data):
-	print("Generating global temperature visualisations ..")
+	print("Generating temperature visualisations ..")
 	
 	b0,b1 = np.degrees(np.min(lats)), np.degrees(np.max(lats))
 	initial_min_temp = min(data[0][0])
