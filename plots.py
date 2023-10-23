@@ -4,6 +4,7 @@ from pde import grad, laplace
 import numpy as np
 import cmocean
 import flux
+import pde
 
 # ======================================================== #
 # 'dur' is in units of days.
@@ -139,4 +140,38 @@ def GlobalTemperaturePlots(lats, data):
 			bar()
 		
 		plt.close()
+# ============================================ #
+def CompareModel():
+	def PHM(lat):
+		return 302.3 - 45.3 * np.power(np.sin(lat),2.0)
+
+	# evaluate phenomological model for annually-averaged latitute temps.
+	PHM_Lats = np.linspace(-np.pi/2, np.pi/2, 100)
+	PHM_AvgT = PHM(PHM_Lats)
+
+	# simulate climate to obtain annually-averaged latitude temps.
+	SIM_TIME = 365 # simulate for 1 year.
+	STEP = 9
+	SIM_Lats = [np.radians(k) for k in np.arange(-90, 90+STEP, STEP)]
+	IC_Temps = [400 for k in SIM_Lats] # global temperatures @ t=0.
+	SIM_Data = pde.EvolveGlobalTemperatures(SIM_Lats, IC_Temps, SIM_TIME)
+
+	SIM_AvgT = np.array(SIM_Data[0][0])
+	for DataFrame in SIM_Data:
+		SIM_AvgT = np.add(SIM_AvgT, np.array(DataFrame[0]))
+	SIM_AvgT = np.divide(np.array(SIM_AvgT), SIM_TIME)
+
+	# Plot comparison
+	plt.figure()
+	plt.title("Model Comparison")
+	plt.ylabel("temperature")
+	plt.xlabel("latitude")
+
+	plt.plot(PHM_Lats, PHM_AvgT, color=(0,0,0), linewidth=5.0, alpha=0.25, label="phenomological model")
+	plt.plot(SIM_Lats, SIM_AvgT, "x--", color=(1,0,0), linewidth=1.0, label="simulation")
+
+	plt.grid()
+	plt.legend()
+	plt.show()
+
 # ============================================ #

@@ -19,7 +19,6 @@ def grad(lats, temps, idx):
 	# we assume a uniform spacing in latitude coords!
 	ss_above = lat_above - lat
 	ss_below = lat - lat_below
-	#assert(np.isclose(ss_above, ss_below)) 
 	step = ss_above
 
 	# central difference approximation
@@ -66,7 +65,7 @@ def eval_pde(lats, temps, j, t):
 	IR_Cooling = Calculate_IRCooling(latitude_temp)
 	Flux_In = flux.Calc_DiurnalFlux(lat, t)
 	Diffusivity = 0.5394
-	Heat_Capacity = 2.0
+	Heat_Capacity = 5.25e6
 
 	term0 = Flux_In * (1 - Albedo)
 	term1 = Diffusivity * (sd2 - np.tan(lat) * sd1)
@@ -76,14 +75,14 @@ def eval_pde(lats, temps, j, t):
 
 # ============================================ #
 
-def EvolveGlobalTemperatures(lats, initial_temps, duration_s):
-	START_TIME, TIME_STEP = 0.0, 0.01
-	
-	data = [(initial_temps, START_TIME)]
-	times = np.arange(START_TIME + TIME_STEP, duration_s, TIME_STEP)
+def EvolveGlobalTemperatures(lats, initial_temps, duration_d):
+	DAY_SECS = 86400
+	TIME_STEP = DAY_SECS 
 
-	print("Simulating Earth Atmosphere ...")
+	data = [(initial_temps, 0.0)]
+	times = np.arange(0 + TIME_STEP, duration_d * DAY_SECS, TIME_STEP)
 
+	print("Simulating Earth's Climate ..")
 	with alive_bar(times.size) as bar:
 		for t in times:
 			temps = data[-1][0]
@@ -99,7 +98,6 @@ def EvolveGlobalTemperatures(lats, initial_temps, duration_s):
 
 			data.append((tbuff, t))
 			bar()
-
 
 	return data
 # ============================================ #
