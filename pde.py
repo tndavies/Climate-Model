@@ -53,19 +53,86 @@ def Calculate_IRCooling(T):
 	TauIR = 0.79 * np.power((T / 273), 3)
 	return (SIGMA * np.power(T, 4)) / (1 + 0.75 * TauIR)
 
+def Get_OceanFraction(lat):
+	def IsIn(x, a, b): # returns true if 'x in [a, b)'.
+		return (x <= a and x > b)
+
+	lat = np.degrees(lat)
+
+	# Table III of Earth's ocean fraction from WK97.
+	if IsIn(lat, 90, 80):
+		frac = 0.934
+	elif IsIn(lat, 80, 70):
+		frac = 0.713
+	elif IsIn(lat, 70, 60):
+		frac = 0.294
+	elif IsIn(lat, 60, 50):
+		frac = 0.428
+	elif IsIn(lat, 50, 40):
+		frac = 0.475
+	elif IsIn(lat, 40, 30):
+		frac = 0.572
+	elif IsIn(lat, 30, 20):
+		frac = 0.624
+	elif IsIn(lat, 20, 10):
+		frac = 0.736
+	elif IsIn(lat, 10, 0):
+		frac = 0.772
+	elif IsIn(lat, 0, -10):
+		frac = 0.764
+	elif IsIn(lat, -10, -20):
+		frac = 0.78
+	elif IsIn(lat, -20, -30):
+		frac = 0.769
+	elif IsIn(lat, -30, -40):
+		frac = 0.888
+	elif IsIn(lat, -40, -50):
+		frac = 0.97
+	elif IsIn(lat, -50, -60):
+		frac = 0.992
+	elif IsIn(lat, -60, -70):
+		frac = 0.896
+	elif IsIn(lat, -70, -80):
+		frac = 0.246
+	else: # lat < -80
+		frac = 0.0
+
+	return frac
+
+def Calculate_HeatCapacity(lat, T):
+	# heat capacities from WK97.
+	C_land = 5.25e6
+	C_ocean = 40*C_land
+
+	C_seaice = 0.0
+	if(T >= 263 and T <= 273):
+		C_seaice = 9.2*C_land 
+	elif(T < 263):
+		C_seaice = 2*C_land
+	else:
+		C_seaice = C_ocean # T > 273 K.
+
+	# fraction of our latitude band that is ocean.
+	fOcean = Get_OceanFraction(lat)
+
+	# fraction of that ocean land-mass that is sea-ice.
+	fSeaIce = 1.0 - np.exp((T-273)/10)
+
+	return (1-fOcean)*C_land + fOcean*(fSeaIce*C_seaice + (1-fSeaIce)*fOcean)
+
 # ============================================ #
 def eval_pde(lats, temps, j, t):
 	lat = lats[j]
-	latitude_temp = temps[j]
+	lat_temp = temps[j]
 
 	sd1 = grad(lats, temps, j)
 	sd2 = laplace(lats, temps, j)
 
-	Albedo = Calculate_Albedo(latitude_temp)
-	IR_Cooling = Calculate_IRCooling(latitude_temp)
+	Albedo = Calculate_Albedo(lat_temp)
+	IR_Cooling = Calculate_IRCooling(lat_temp)
+	Heat_Capacity = Calculate_HeatCapacity(lat, lat_temp)
 	Flux_In = flux.Calc_DiurnalFlux(lat, t)
 	Diffusivity = 0.5394
-	Heat_Capacity = 5.25e6
 
 	term0 = Flux_In * (1 - Albedo)
 	term1 = Diffusivity * (sd2 - np.tan(lat) * sd1)
@@ -79,25 +146,25 @@ def EvolveGlobalTemperatures(lats, initial_temps, duration_d):
 	DAY_SECS = 86400
 	TIME_STEP = DAY_SECS 
 
-	data = [(initial_temps, 0.0)]
+	Tprofs = [initial_temps]
 	times = np.arange(0 + TIME_STEP, duration_d * DAY_SECS, TIME_STEP)
 
 	print("Simulating Earth's Climate ..")
 	with alive_bar(times.size) as bar:
 		for t in times:
-			temps = data[-1][0]
-			tbuff = []
+			temps, tbuff = Tprofs[-1], []
 
 			# evolve temperatures
 			for j, temp in enumerate(temps):
 				dTdt = eval_pde(lats, temps, j, t)
 				evolved_temp = temp + dTdt * TIME_STEP
-
 				assert(evolved_temp >= 0.0)
 				tbuff.append(evolved_temp)
 
-			data.append((tbuff, t))
+			Tprofs.append(tbuff)
 			bar()
 
-	return data
+	times = np.append(0, times)
+
+	return times, Tprofs 
 # ============================================ #
