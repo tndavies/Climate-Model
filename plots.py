@@ -105,54 +105,53 @@ def del_approximations(lats, ics):
 
 # ======================================================== #
 
-def GlobalTemperaturePlots(lats, data):
-	print("Generating temperature visualisations ..")
-	
-	b0,b1 = np.degrees(np.min(lats)), np.degrees(np.max(lats))
-	initial_min_temp = min(data[0][0])
-	initial_max_temp = max(data[0][0])
+def OceanProfile():
+	lats = np.linspace(-np.pi/2, np.pi/2, 1000)
+	fracs = [pde.Get_OceanFraction(lat) for lat in lats]
 
-	with alive_bar(len(data)) as bar:
-		plt.figure()
-		
-		for j, ds in enumerate(data):
-			temps, time = ds[0], ds[1]
-			time_str = str(np.round(time, 2))
+	plt.figure()
+	plt.plot(lats, fracs)
+	plt.title("Fraction of latitude band that is ocean")
+	plt.ylabel("Ocean Fraction")
+	plt.xlabel("latitude")
+	plt.grid()
+	plt.show()
 
-			plt.clf()
-			plt.title("Global temperature @ t=" + time_str + " [s]")
-			plt.xlabel("longitude [deg]")
-			plt.ylabel("latitude [deg]")
-			
-			arr = np.transpose(np.array([temps for n in range(lats.size)]))
-			plt.imshow(arr, origin="lower", 
-					interpolation="gaussian",
-					extent=[b0,b1,b0,b1],
-					vmin=initial_min_temp,
-					vmax=initial_max_temp,
-					cmap=cmocean.cm.thermal)
+# ======================================================== #
 
-			plt.colorbar()
+def TemporalHeatmap(times, tprofs):
+	print("Generating temporal heatmap ..")
 
-			frame_name = "pde_video/" + str(j+1).zfill(4) + ".png"
-			plt.savefig(frame_name, format="png", bbox_inches="tight", pad_inches=0.25)
+	def Celsius(temps_K):
+		return [(t-273.15) for t in temps_K]
 
-			bar()
-		
-		plt.close()
-# ============================================ #
+	heatmap = np.transpose([Celsius(tp) for tp in tprofs])
+	t0, t1 = times[0] / 86400, times[-1] / 86400
+
+	plt.figure()
+	plt.imshow(heatmap, 
+		origin="lower",
+		vmin=0, 
+		extent=[t0,t1,-90,90], 
+		interpolation="gaussian",
+		cmap=cmocean.cm.thermal)
+
+	plt.title("Global Temperature Simulation")
+	plt.ylabel("latitude")
+	plt.xlabel("days")
+	plt.colorbar()
+	plt.show()
+
+# ======================================================== #
+
 def CompareModel():
 	def PHM(lat):
 		return 302.3 - 45.3 * np.power(np.sin(lat),2.0)
 
-	# evaluate phenomological model for annually-averaged latitute temps.
-	PHM_Lats = np.linspace(-np.pi/2, np.pi/2, 100)
-	PHM_AvgT = PHM(PHM_Lats)
-
-	# simulate climate to obtain annually-averaged latitude temps.
-	SIM_TIME = 365 # simulate for 1 year.
-	STEP = 9
-	SIM_Lats = [np.radians(k) for k in np.arange(-90, 90+STEP, STEP)]
+	# simulate climate.
+	LAT_STEP = 9
+	SIM_TIME = 365*1 # simulate for 1 year.
+	SIM_Lats = [np.radians(k) for k in np.arange(-90, 90+LAT_STEP, LAT_STEP)]
 	IC_Temps = [400 for k in SIM_Lats] # global temperatures @ t=0.
 	SIM_Data = pde.EvolveGlobalTemperatures(SIM_Lats, IC_Temps, SIM_TIME)
 
@@ -161,7 +160,11 @@ def CompareModel():
 		SIM_AvgT = np.add(SIM_AvgT, np.array(DataFrame[0]))
 	SIM_AvgT = np.divide(np.array(SIM_AvgT), SIM_TIME)
 
-	# Plot comparison
+	# evaluate phenomological model.
+	PHM_Lats = np.linspace(-np.pi/2, np.pi/2, 100)
+	PHM_AvgT = PHM(PHM_Lats)
+
+	# plot comparison.
 	plt.figure()
 	plt.title("Model Comparison")
 	plt.ylabel("temperature")
