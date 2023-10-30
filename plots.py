@@ -125,13 +125,12 @@ def TemporalHeatmap(times, tprofs):
 	def Celsius(temps_K):
 		return [(t-273.15) for t in temps_K]
 
-	heatmap = np.transpose([Celsius(tp) for tp in tprofs])
+	heatmap = np.transpose([tp for tp in tprofs])
 	t0, t1 = times[0] / 86400, times[-1] / 86400
 
 	plt.figure()
 	plt.imshow(heatmap, 
 		origin="lower",
-		vmin=0, 
 		extent=[t0,t1,-90,90], 
 		interpolation="gaussian",
 		cmap=cmocean.cm.thermal)

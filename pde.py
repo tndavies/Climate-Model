@@ -109,16 +109,14 @@ def Calculate_HeatCapacity(lat, T):
 		C_seaice = 9.2*C_land 
 	elif(T < 263):
 		C_seaice = 2*C_land
-	else:
-		C_seaice = C_ocean # T > 273 K.
 
 	# fraction of our latitude band that is ocean.
 	fOcean = Get_OceanFraction(lat)
 
-	# fraction of that ocean land-mass that is sea-ice.
-	fSeaIce = 1.0 - np.exp((T-273)/10)
+	# fraction of that ocean that is sea-ice.
+	fSeaIce = 0.0 if(T > 273) else (1.0 - np.exp((T-273)/10)) 
 
-	return (1-fOcean)*C_land + fOcean*(fSeaIce*C_seaice + (1-fSeaIce)*fOcean)
+	return (1-fOcean)*C_land + fOcean*((1-fSeaIce)*C_ocean + fSeaIce*C_seaice)
 
 # ============================================ #
 def eval_pde(lats, temps, j, t):
