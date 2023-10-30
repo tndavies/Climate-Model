@@ -148,16 +148,20 @@ def CompareModel():
 		return 302.3 - 45.3 * np.power(np.sin(lat),2.0)
 
 	# simulate climate.
-	LAT_STEP = 9
-	SIM_TIME = 365*1 # simulate for 1 year.
+	LAT_STEP, SIM_TIME_YR = 6, 150
 	SIM_Lats = [np.radians(k) for k in np.arange(-90, 90+LAT_STEP, LAT_STEP)]
-	IC_Temps = [400 for k in SIM_Lats] # global temperatures @ t=0.
-	SIM_Data = pde.EvolveGlobalTemperatures(SIM_Lats, IC_Temps, SIM_TIME)
+	IC_Temps = [400 for k in SIM_Lats]
+	SIM_Times, SIM_Temps = pde.EvolveGlobalTemperatures(SIM_Lats, IC_Temps, 365 * SIM_TIME_YR)
 
-	SIM_AvgT = np.array(SIM_Data[0][0])
-	for DataFrame in SIM_Data:
-		SIM_AvgT = np.add(SIM_AvgT, np.array(DataFrame[0]))
-	SIM_AvgT = np.divide(np.array(SIM_AvgT), SIM_TIME)
+	# calc avg. temp for each latitude band,
+	# over LastNYrs of simulation.
+	LastNYrs = 50
+	TempProfiles = SIM_Temps[-365*LastNYrs:]
+	
+	SIM_Avgs = np.array(TempProfiles[0])
+	for k in range(1, len(TempProfiles)):
+		SIM_Avgs = np.add(SIM_Avgs, TempProfiles[k])
+	SIM_Avgs = np.divide(SIM_Avgs, len(TempProfiles))
 
 	# evaluate phenomological model.
 	PHM_Lats = np.linspace(-np.pi/2, np.pi/2, 100)
@@ -169,8 +173,8 @@ def CompareModel():
 	plt.ylabel("temperature")
 	plt.xlabel("latitude")
 
+	plt.plot(SIM_Lats, SIM_Avgs, "x--", color=(1,0,0), linewidth=1.0, label="simulation")
 	plt.plot(PHM_Lats, PHM_AvgT, color=(0,0,0), linewidth=5.0, alpha=0.25, label="phenomological model")
-	plt.plot(SIM_Lats, SIM_AvgT, "x--", color=(1,0,0), linewidth=1.0, label="simulation")
 
 	plt.grid()
 	plt.legend()
