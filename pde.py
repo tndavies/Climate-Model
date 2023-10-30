@@ -45,13 +45,18 @@ def laplace(lats, temps, i):
 		return (temps[i+1] - 2*temps[i] + temps[i-1]) / (lats[i+1]-lat)**2
 
 # ============================================ #
+
 def Calculate_Albedo(T):
 	return 0.525 - 0.245 * np.tanh(0.2*T-53.6)
+
+# ============================================ #
 
 def Calculate_IRCooling(T):
 	SIGMA = 5.670374419e-8
 	TauIR = 0.79 * np.power((T / 273), 3)
 	return (SIGMA * np.power(T, 4)) / (1 + 0.75 * TauIR)
+
+# ============================================ #
 
 def Get_OceanFraction(lat):
 	def IsIn(x, a, b): # returns true if 'x in [a, b)'.
@@ -99,6 +104,8 @@ def Get_OceanFraction(lat):
 
 	return frac
 
+# ============================================ #
+
 def Calculate_HeatCapacity(lat, T):
 	# heat capacities from WK97.
 	C_land = 5.25e6
@@ -119,7 +126,8 @@ def Calculate_HeatCapacity(lat, T):
 	return (1-fOcean)*C_land + fOcean*((1-fSeaIce)*C_ocean + fSeaIce*C_seaice)
 
 # ============================================ #
-def eval_pde(lats, temps, j, t):
+
+def Evaluate_DiffusionPDE(lats, temps, j, t):
 	lat = lats[j]
 	lat_temp = temps[j]
 
@@ -154,7 +162,7 @@ def EvolveGlobalTemperatures(lats, initial_temps, duration_d):
 
 			# evolve temperatures
 			for j, temp in enumerate(temps):
-				dTdt = eval_pde(lats, temps, j, t)
+				dTdt = Evaluate_DiffusionPDE(lats, temps, j, t)
 				evolved_temp = temp + dTdt * TIME_STEP
 				assert(evolved_temp >= 0.0)
 				tbuff.append(evolved_temp)
@@ -164,5 +172,6 @@ def EvolveGlobalTemperatures(lats, initial_temps, duration_d):
 
 	times = np.append(0, times)
 
-	return times, Tprofs 
+	return list(np.divide(times, DAY_SECS)), Tprofs 
+
 # ============================================ #
