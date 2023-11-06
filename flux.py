@@ -4,7 +4,7 @@ import numpy as np
 
 def Calc_Declination(t_s):
 	obliquity, omega = np.radians(23.45), 1.98226e-7 # Earth orbital constants.
-	sine_decl = -np.sin(obliquity) * np.cos(omega*t_s + np.pi/2)
+	sine_decl = -np.sin(obliquity) * np.sin(omega*t_s)
 
 	return np.arcsin(sine_decl)
 
@@ -38,3 +38,18 @@ def Calc_DiurnalFlux(lat, t_s):
 
 # ============================================ #
 
+def EllipticOrbit(P_d, e, dt=86400):
+	P_s = P_d * 86400
+	SIM_TIME = P_s
+	times = [0]
+	pos = [0] 
+
+	while(times[-1] <= SIM_TIME):
+		time, theta = times[-1], pos[-1]
+
+		time_ROC = ( 2*np.pi * (1 + e * np.cos(theta))**2 ) / (P_s * np.power((1-e**2),1.5))
+		pos.append(theta + time_ROC * dt) 
+		times.append(time + dt)
+
+	return list(np.divide(times, 86400)), pos
+# ============================================ #

@@ -122,22 +122,20 @@ def OceanProfile():
 def TemporalHeatmap(times, tprofs):
 	print("Generating temporal heatmap ..")
 
-	def Celsius(temps_K):
-		return [(t-273.15) for t in temps_K]
-
 	heatmap = np.transpose([tp for tp in tprofs])
-	t0, t1 = times[0] / 86400, times[-1] / 86400
+	t0, t1 = times[0] / 365, times[-1] / 365
 
 	plt.figure()
 	plt.imshow(heatmap, 
 		origin="lower",
 		extent=[t0,t1,-90,90], 
 		interpolation="gaussian",
-		cmap=cmocean.cm.thermal)
+		cmap=cmocean.cm.thermal,
+		aspect="auto")
 
 	plt.title("Global Temperature Simulation")
 	plt.ylabel("latitude")
-	plt.xlabel("days")
+	plt.xlabel("year")
 	plt.colorbar()
 	plt.show()
 
@@ -179,5 +177,29 @@ def CompareModel():
 	plt.grid()
 	plt.legend()
 	plt.show()
+
+# ============================================ #
+
+def OrbitalApproximation():
+
+	plt.figure()
+	plt.title("Elliptic Orbit Position")
+	plt.xlabel("days", fontsize=20)
+	plt.ylabel("orbital position", fontsize=20)
+	
+	for e in np.linspace(0, 0.99, 20):
+		e_str = str(np.round(e, 2))
+		timestep = 5000 if(e<0.8) else 50 
+		times, angular_positions = flux.EllipticOrbit(365, e, dt=timestep)
+		plt.plot(times, angular_positions, "--", alpha=0.8, linewidth=0.8, color=(0.66, 0.34, 0.82))
+
+	Earth_e = 0.01671
+	times, angular_positions = flux.EllipticOrbit(365, Earth_e, dt=1000)
+	plt.plot(times, angular_positions, label="(Earth) e="+str(Earth_e), linewidth=2, color=(1,0,0))
+	
+	plt.legend()
+	plt.grid()
+	plt.show()
+
 
 # ============================================ #
