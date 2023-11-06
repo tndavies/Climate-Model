@@ -189,12 +189,11 @@ def OrbitalApproximation():
 	
 	for e in np.linspace(0, 0.99, 20):
 		e_str = str(np.round(e, 2))
-		timestep = 5000 if(e<0.8) else 50 
-		times, angular_positions = flux.EllipticOrbit(365, e, dt=timestep)
+		times, angular_positions = flux.EllipticOrbit(365*86400, 365, e)
 		plt.plot(times, angular_positions, "--", alpha=0.8, linewidth=0.8, color=(0.66, 0.34, 0.82))
 
 	Earth_e = 0.01671
-	times, angular_positions = flux.EllipticOrbit(365, Earth_e, dt=1000)
+	times, angular_positions = flux.EllipticOrbit(365*86400, 365, Earth_e)
 	plt.plot(times, angular_positions, label="(Earth) e="+str(Earth_e), linewidth=2, color=(1,0,0))
 	
 	plt.legend()
@@ -202,4 +201,25 @@ def OrbitalApproximation():
 	plt.show()
 
 
+# ============================================ #
+
+def SolarFluxAlongOrbit():
+	plt.figure()
+	plt.title("Solar flux throughout various orbits")
+	plt.xlabel("days", fontsize=20)
+	plt.ylabel(r"$q(t)$", fontsize=20)
+
+	# Calculate the actual flux Earth recived from the sun
+	# throughout its orbit, first a circular orbit,
+	# and then its true elliptical orbit.
+	times = np.linspace(0, 365*86400, 1000)
+	Flux_CircularOrbit = [flux.Calc_SolarRadiation(t, 0.0) for t in times]
+	Flux_ActualOrbit = [flux.Calc_SolarRadiation(t, 0.01671) for t in times]
+
+	plt.plot(np.divide(times, 86400), Flux_CircularOrbit, label="e=0.0")
+	plt.plot(np.divide(times, 86400), Flux_ActualOrbit, label="e=0.01671")
+
+	plt.legend()
+	plt.grid()
+	plt.show()
 # ============================================ #
