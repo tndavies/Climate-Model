@@ -12,18 +12,19 @@ import pde
 def DeclinationPlot(dur):
 	times_d = np.linspace(0, dur, 2*dur)
 	times_s = np.array([t_d * 86400 for t_d in times_d])
-	decls = flux.Calc_Declination(times_s)
+	
+	decls_ellip = flux.Calc_Declination(times_s)
+	decls_circ = flux.Calc_Declination(times_s, False)
 
 	plt.figure()
 	plt.title("Declination Angle vs. time", fontsize=20)
 	plt.xlabel("time [days]", fontsize=20)
 	plt.ylabel("declination [deg]", fontsize=20)
-
-	plt.plot(times_d, np.degrees(decls))
+	plt.plot(times_d, np.degrees(decls_ellip), label="elliptical orbit")
+	plt.plot(times_d, np.degrees(decls_circ), label="circular orbit")
+	plt.legend()
 	plt.grid()
-
 	plt.show()
-
 
 # ======================================================== #
 
@@ -146,14 +147,14 @@ def CompareModel():
 		return 302.3 - 45.3 * np.power(np.sin(lat),2.0)
 
 	# simulate climate.
-	LAT_STEP, SIM_TIME_YR = 6, 150
+	LAT_STEP, SIM_TIME_YR = 6, 50
 	SIM_Lats = [np.radians(k) for k in np.arange(-90, 90+LAT_STEP, LAT_STEP)]
 	IC_Temps = [400 for k in SIM_Lats]
 	SIM_Times, SIM_Temps = pde.EvolveGlobalTemperatures(SIM_Lats, IC_Temps, 365 * SIM_TIME_YR)
 
 	# calc avg. temp for each latitude band,
 	# over LastNYrs of simulation.
-	LastNYrs = 50
+	LastNYrs = 10
 	TempProfiles = SIM_Temps[-365*LastNYrs:]
 	
 	SIM_Avgs = np.array(TempProfiles[0])
@@ -213,10 +214,8 @@ def SolarFluxAlongOrbit():
 	# throughout its orbit, first a circular orbit,
 	# and then its true elliptical orbit.
 	times = np.linspace(0, 365*86400, 1000)
-	Flux_CircularOrbit = [flux.Calc_SolarRadiation(t, 0.0) for t in times]
-	Flux_ActualOrbit = [flux.Calc_SolarRadiation(t, 0.01671) for t in times]
+	Flux_ActualOrbit = [flux.Calc_SolarRadiation(t) for t in times]
 
-	plt.plot(np.divide(times, 86400), Flux_CircularOrbit, label="e=0.0")
 	plt.plot(np.divide(times, 86400), Flux_ActualOrbit, label="e=0.01671")
 
 	plt.legend()
