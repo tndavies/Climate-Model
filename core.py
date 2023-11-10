@@ -11,4 +11,4 @@ import flux
 
 #plots.TemporalHeatmap(times[-365*2:], temperature_profs[-365*2:])
 
-plots.CompareModel()
+plots.TrueAnomalyODE_Convergence()

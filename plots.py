@@ -221,4 +221,48 @@ def SolarFluxAlongOrbit():
 	plt.legend()
 	plt.grid()
 	plt.show()
+
 # ============================================ #
+
+def TrueAnomalyODE_Convergence():
+	plt.figure()
+	plt.title("Convergence of numerical integration for Earth's True Anomaly")
+	plt.xlabel("days", fontsize=20)
+	plt.ylabel(r"$f$", fontsize=20)
+
+	rts, rfs = flux.Calc_TrueAnomaly_ODE(dt=100)
+	ts, fs = flux.Calc_TrueAnomaly_ODE(dt=1000)
+
+	plt.plot(rts, rfs, ".", label="step=100")
+	plt.plot(ts, fs, "x", label="step=1000")
+
+	plt.grid()
+	plt.legend()
+	plt.show()
+
+
+# ============================================ #
+
+def TrueAnomalyResiduals():
+	plt.figure()
+	plt.title("True Anomaly: Numerical Integration vs. Series Approximation")
+	plt.xlabel("days", fontsize=20)
+	plt.ylabel("residuals rel. numeric result", fontsize=20)
+
+	# Use 'TrueAnomalyODE_Convergence' plot to find a good step size
+	# such that we get an accurate calculation here.
+	ref_ts, ref_fs = flux.Calc_TrueAnomaly_ODE(dt=100)
+
+	for tc in range(2,5):
+		approx_fs = [flux.Calc_TrueAnomaly_Approximate(t, term_count=tc) for t in ref_ts]
+		residuals = [(approx_fs[k] - ref_fs[k]) for k in range(len(ref_ts))]
+		plt.plot(np.divide(ref_ts,86400), residuals, label=str(tc) + " terms")
+
+	plt.grid()
+	plt.legend()
+	plt.show()
+
+
+# ============================================ #
+
+# - We then need a plot showing that this calculation converges, for Earth's orbit (e)

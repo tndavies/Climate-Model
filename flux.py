@@ -13,6 +13,41 @@ def Calc_MeanAnomaly(t_s):
 
 # ============================================ #
 
+def Calc_TrueAnomaly_Approximate(t_s, term_count=4):
+	e = 0.01671
+
+	# The series approximation for the true anomaly only converges if
+	# the eccentricty of our elliptical orbit is less than the 'Laplace Limit'.
+	LaplaceLimit = 0.6627
+	assert(e < LaplaceLimit)
+
+	# Utilise series approximation for true anomaly (f) [first 3 terms in series].
+	# [ref: 'Celestial Mechanics', Moulton]
+	M = Calc_MeanAnomaly(t_s)
+	terms = [M, (2*e*np.sin(M)), (1.25*np.power(e,2)*np.sin(2*M)), (np.power(e,3)/12)*(13*np.sin(3*M)-3*np.sin(M))]
+	
+	return np.sum(terms[:term_count])
+
+# ============================================ #
+
+def Calc_TrueAnomaly_ODE(dt=1000):
+	P_s = 365 * 86400 # Period of Earth's orbit.
+	e = 0.01671 # Earth's orbital eccentricity
+	e = 0.95
+
+	times = [0]
+	pos = [0] 
+
+	while(times[-1] < P_s):
+		time, theta = times[-1], pos[-1]
+		time_ROC = ( 2*np.pi * (1 + e * np.cos(theta))**2 ) / (P_s * np.power((1-e**2),1.5))
+		pos.append(theta + time_ROC * dt) 
+		times.append(time + dt)
+
+	return times, pos	
+
+# ============================================ #
+
 def Calc_Declination(t_s, use_elliptical_orbit=True):
 	# Define our orbital parameters.
 	orbital_period_s = 365 * 86400
@@ -31,17 +66,8 @@ def Calc_Declination(t_s, use_elliptical_orbit=True):
 		# The solution to the equation requires numerical methods, or can be
 		# approximated using a series expansion; we use the latter approach
 		# for speed reasons.
+		f = Calc_TrueAnomaly_Approximate(t_s)
 		
-
-		# The series approximation for the true anomaly only converges if
-		# the eccentricty of our elliptical orbit is less than the 'Laplace Limit'.
-		LaplaceLimit = 0.6627
-		assert(e < LaplaceLimit)
-
-		# Utilise series approximation for true anomaly (f) [first 3 terms in series].
-		M = Calc_MeanAnomaly(t_s)
-		f = M + (2*e*np.sin(M)) + (1.25*np.power(e,2)*np.sin(2*M)) + \
-			(np.power(e,3)/12)*(13*np.sin(3*M)-3*np.sin(M))
 		
 		# Compute Earth-Sun declination angle, given the ecliptic longitude
 		# for our desired orbit.
@@ -68,15 +94,12 @@ def Calc_SolarRadiation(t_s):
 	e = 0.01671 # Earth's orbital eccentricity
 
 	# On an elliptical orbit, the distance between the Earth
-	# & sun can be calculated given that we know the true anomaly (f).
-	#
-	# We can use the same approximation as for the declination calculation
-	# to obtain (f), and in-fact we can get the distance (r) straight away
-	# with a related series approximation [first 3 terms].
-	M = Calc_MeanAnomaly(t_s)
-	r_interim = 1 - (e*np.cos(M)) - (np.power(e,2)/2)*(np.cos(2*M)-1) \
-					-(np.power(e,3)/8)*(3*np.cos(3*M) - 3*np.cos(M))  
-	r = r_interim * a
+	# & sun can be calculated via elliptical geometry, given 
+	# that we know the true anomaly (f).
+	f = Calc_TrueAnomaly_Approximate(t_s)
+
+	# Here, f=0, corresponds to the Earth at the periapsis point.
+	r = a*(1-np.power(e,2)) / (1 + e*np.cos(f))
 
 	return Luminosity / (4 * np.pi * r**2)
 
@@ -110,21 +133,4 @@ def Calc_DiurnalFlux(lat, t_s):
 
 	return flux
 
-# ============================================ #
-
-def EllipticOrbit(SimTime_s, P_d, e):
-	dt = 5000 if(e<0.8) else 50 # trial and error.
-	P_s = P_d * 86400
-
-	times = [0]
-	pos = [0] 
-
-	while(times[-1] < SimTime_s):
-		time, theta = times[-1], pos[-1]
-		time_ROC = ( 2*np.pi * (1 + e * np.cos(theta))**2 ) / (P_s * np.power((1-e**2),1.5))
-		pos.append(theta + time_ROC * dt) 
-		times.append(time + dt)
-
-	return times, pos
-	
 # ============================================ #
