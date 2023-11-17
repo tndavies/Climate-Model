@@ -30,10 +30,9 @@ def Calc_TrueAnomaly_Approximate(t_s, term_count=4):
 
 # ============================================ #
 
-def Calc_TrueAnomaly_ODE(dt=1000):
+def Calc_TrueAnomaly_ODE(dt):
 	P_s = 365 * 86400 # Period of Earth's orbit.
 	e = 0.01671 # Earth's orbital eccentricity
-	e = 0.95
 
 	times = [0]
 	pos = [0] 
@@ -88,8 +87,13 @@ def Calc_Declination(t_s, use_elliptical_orbit=True):
 
 # ============================================ #
 
-def Calc_SolarRadiation(t_s):
+def Calc_SolarEnergyAt(r):
 	Luminosity = 3.846e26 # Sun's luminosity
+	return Luminosity / (4 * np.pi * r**2)
+
+# ============================================ #
+
+def Calc_SolarRadiation(t_s):
 	a = 149.6e9 # Earth-Sun Semi-major axis
 	e = 0.01671 # Earth's orbital eccentricity
 
@@ -101,7 +105,37 @@ def Calc_SolarRadiation(t_s):
 	# Here, f=0, corresponds to the Earth at the periapsis point.
 	r = a*(1-np.power(e,2)) / (1 + e*np.cos(f))
 
-	return Luminosity / (4 * np.pi * r**2)
+	return Calc_SolarEnergyAt(r)
+
+# ============================================ #
+
+def ValidateSolarRadCalculation():
+	# Given Earth's orbital parameters (a, e)
+	# we can compute the periapsis and apsis
+	# distances (relative to the sun), and
+	# thus what our max and min solar flux
+	# should be throughout the orbit.
+	a = 149.6e9
+	e = 0.0167
+
+	periapsis = a*(1-e) # closest
+	apsis = a*(1+e) # furthest
+
+	exact_max_flux = Calc_SolarEnergyAt(periapsis)
+	exact_min_flux = Calc_SolarEnergyAt(apsis)
+
+	print("Theoretical Solar Flux values: ")
+	print("Max flux: " + str(np.round(exact_max_flux,2)))
+	print("Min flux: " + str(np.round(exact_min_flux,2)))
+
+	fluxes = [Calc_SolarRadiation(86400 * t) for t in np.linspace(0, 365, 365)]
+	model_max_flux = max(fluxes)
+	mode_min_flux = min(fluxes)
+
+	print("\nModel's Flux values: ")
+	print("Max flux: " + str(np.round(model_max_flux,2)))
+	print("Min flux: " + str(np.round(mode_min_flux,2)))
+
 
 # ============================================ #
 

@@ -13,8 +13,8 @@ def DeclinationPlot(dur):
 	times_d = np.linspace(0, dur, 2*dur)
 	times_s = np.array([t_d * 86400 for t_d in times_d])
 	
-	decls_ellip = flux.Calc_Declination(times_s)
-	decls_circ = flux.Calc_Declination(times_s, False)
+	decls_ellip = [flux.Calc_Declination(t_s) for t_s in times_s]
+	decls_circ = [flux.Calc_Declination(t_s, False) for t_s in times_s]
 
 	plt.figure()
 	plt.title("Declination Angle vs. time", fontsize=20)
@@ -120,12 +120,19 @@ def OceanProfile():
 
 # ======================================================== #
 
-def TemporalHeatmap(times, tprofs):
+def TemporalHeatmap(sim):
 	print("Generating temporal heatmap ..")
 
-	heatmap = np.transpose([tp for tp in tprofs])
-	t0, t1 = times[0] / 365, times[-1] / 365
+	data = list(sim)
 
+	bulked_temp_data = []
+	for data_frame in data:
+		for T in data_frame[1]:
+			bulked_temp_data.append(T)
+
+	t0, t1 = data[0][0] / 365.25, data[-1][0] / 365.25
+	heatmap = np.transpose(bulked_temp_data)
+	
 	plt.figure()
 	plt.imshow(heatmap, 
 		origin="lower",
@@ -154,7 +161,7 @@ def CompareModel():
 
 	# calc avg. temp for each latitude band,
 	# over LastNYrs of simulation.
-	LastNYrs = 10
+	LastNYrs = 1
 	TempProfiles = SIM_Temps[-365*LastNYrs:]
 	
 	SIM_Avgs = np.array(TempProfiles[0])
@@ -230,16 +237,13 @@ def TrueAnomalyODE_Convergence():
 	plt.xlabel("days", fontsize=20)
 	plt.ylabel(r"$f$", fontsize=20)
 
-	rts, rfs = flux.Calc_TrueAnomaly_ODE(dt=100)
-	ts, fs = flux.Calc_TrueAnomaly_ODE(dt=1000)
+	for ss in np.arange(500, 3000, 100):
+		times, pos = flux.Calc_TrueAnomaly_ODE(ss)
+		plt.plot(times, pos, label=str(ss)+" steps")
 
-	plt.plot(rts, rfs, ".", label="step=100")
-	plt.plot(ts, fs, "x", label="step=1000")
-
-	plt.grid()
 	plt.legend()
+	plt.grid()
 	plt.show()
-
 
 # ============================================ #
 
@@ -264,5 +268,3 @@ def TrueAnomalyResiduals():
 
 
 # ============================================ #
-
-# - We then need a plot showing that this calculation converges, for Earth's orbit (e)

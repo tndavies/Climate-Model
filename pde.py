@@ -148,17 +148,17 @@ def Evaluate_DiffusionPDE(lats, temps, j, t):
 
 # ============================================ #
 
-def EvolveGlobalTemperatures(lats, initial_temps, duration_d):
-	DAY_SECS = 86400
-	TIME_STEP = DAY_SECS 
+def SimulateClimate(SimTime_yrs, iv=400, lat_step=6):
+	lats = [np.radians(k) for k in np.arange(-90, 90+lat_step, lat_step)]
+	TempFrames = [[iv for k in lats]]
 
-	Tprofs = [initial_temps]
-	times = np.arange(0 + TIME_STEP, duration_d * DAY_SECS, TIME_STEP)
+	TIME_STEP = 86400 
+	times_s = np.arange(TIME_STEP, SimTime_yrs * 365.25 * 86400, TIME_STEP)
 
 	print("Simulating Earth's Climate ..")
-	with alive_bar(times.size) as bar:
-		for t in times:
-			temps, tbuff = Tprofs[-1], []
+	with alive_bar(times_s.size) as bar:
+		for t in times_s:
+			temps, tbuff = TempFrames[-1], []
 
 			# evolve temperatures
 			for j, temp in enumerate(temps):
@@ -167,11 +167,23 @@ def EvolveGlobalTemperatures(lats, initial_temps, duration_d):
 				assert(evolved_temp >= 0.0)
 				tbuff.append(evolved_temp)
 
-			Tprofs.append(tbuff)
+			TempFrames.append(tbuff)
 			bar()
 
-	times = np.append(0, times)
+	times_s = np.append(0, times_s)
+	times_d = list(np.divide(times_s, 86400))
 
-	return list(np.divide(times, DAY_SECS)), Tprofs 
+	return zip(times_d, TempFrames)
+
+# ============================================ #
+
+def DumpSim(sim):
+	for ds in sim:
+		time = ds[0]
+		temps = ds[1]
+
+		print("At time=" + str(time) + " days")
+		print(temps)
+		print("")
 
 # ============================================ #
