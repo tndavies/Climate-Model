@@ -4,5 +4,5 @@ import pde
 import matplotlib.pyplot as plt
 import flux
 
-sim = pde.SimulateClimate(2)
-plots.TemporalHeatmap(sim)
+sim, ts = pde.SimulateClimate(60)
+plots.TemporalHeatmap(sim, sim_step=ts, subset=10)

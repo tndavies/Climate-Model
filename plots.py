@@ -120,13 +120,24 @@ def OceanProfile():
 
 # ======================================================== #
 
-def TemporalHeatmap(sim, subset=0, celsius=True):
-	# @note: the 'subset' parameter tells us what index into
-	# the 'sim' array we begin drawing the plot from.
+def TemporalHeatmap(sim, subset=0, sim_step=1, celsius=True):
+	# @note: the 'subset' parameter is how many years relative
+	# to the end of the simulation, we should include within
+	# the plot.
 	#
-	# ie: subset=0, draws all the sim data.
-	# ie: subset=-10, draws the last 10 timesteps of sim data.
+	# ie: subset=0, includes all the sim data
+	# ie: subset=3, includes the last 3 years of sim data
+	#
+	# 'sim_step' is the timestep used when computing the
+	# simulation, this is provided as a return value from
+	# SimulateClimate (defaults to 1 day).
+
 	print("Generating temporal heatmap ..")
+
+	# Compute the subset index (sidx) from the subset parameter.
+	tsteps_per_yr = 365 / sim_step
+	sidx = int(subset * tsteps_per_yr)
+	assert(sidx <= len(sim))
 
 	# Gather the temperature array for each timestep
 	# into a big array.
@@ -137,8 +148,6 @@ def TemporalHeatmap(sim, subset=0, celsius=True):
 			buffer.append((T_kelvin-273.15) if celsius else T_kelvin)
 		temperature_frames.append(buffer)
 
-	heatmap = temperature_frames[-subset:]
-
 	# Find the min/max temperatures across the entire sim
 	temp_dump = []
 	for k in temperature_frames:
@@ -146,12 +155,13 @@ def TemporalHeatmap(sim, subset=0, celsius=True):
 	Tmin, Tmax = min(temp_dump), max(temp_dump)
 
 	# Extract the time scale of the simulation. 
-	timescale = [(sim[-subset])[0], (sim[-1])[0]]
+	timescale = [(sim[-sidx])[0], (sim[-1])[0]]
 	timescale = np.divide(timescale, 365)
 
 	# Construct the heatmap plot.
 	plt.figure()
 	
+	heatmap = temperature_frames[-sidx:]
 	plt.imshow(np.transpose(heatmap), 
 		origin="lower",
 		extent=[timescale[0],timescale[1],-np.radians(90),np.radians(90)],

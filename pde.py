@@ -173,7 +173,7 @@ def SimulateClimate(SimTime_yrs, iv=400, lat_step=6):
 	times_s = np.append(0, times_s)
 	times_d = list(np.divide(times_s, 86400))
 
-	return list(zip(times_d, TempFrames))
+	return list(zip(times_d, TempFrames)), (TIME_STEP / 86400)
 
 # ============================================ #
 
