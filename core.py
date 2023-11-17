@@ -4,4 +4,5 @@ import pde
 import matplotlib.pyplot as plt
 import flux
 
-flux.ValidateSolarRadCalculation()
+sim = pde.SimulateClimate(2)
+plots.TemporalHeatmap(sim)

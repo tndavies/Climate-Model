@@ -120,23 +120,42 @@ def OceanProfile():
 
 # ======================================================== #
 
-def TemporalHeatmap(sim):
+def TemporalHeatmap(sim, subset=0, celsius=True):
+	# @note: the 'subset' parameter tells us what index into
+	# the 'sim' array we begin drawing the plot from.
+	#
+	# ie: subset=0, draws all the sim data.
+	# ie: subset=-10, draws the last 10 timesteps of sim data.
 	print("Generating temporal heatmap ..")
 
-	data = list(sim)
+	# Gather the temperature array for each timestep
+	# into a big array.
+	temperature_frames = []
+	for dframe in sim:
+		buffer = []
+		for T_kelvin in dframe[1]:
+			buffer.append((T_kelvin-273.15) if celsius else T_kelvin)
+		temperature_frames.append(buffer)
 
-	bulked_temp_data = []
-	for data_frame in data:
-		for T in data_frame[1]:
-			bulked_temp_data.append(T)
+	heatmap = temperature_frames[-subset:]
 
-	t0, t1 = data[0][0] / 365.25, data[-1][0] / 365.25
-	heatmap = np.transpose(bulked_temp_data)
-	
+	# Find the min/max temperatures across the entire sim
+	temp_dump = []
+	for k in temperature_frames:
+		for T in k: temp_dump.append(T)
+	Tmin, Tmax = min(temp_dump), max(temp_dump)
+
+	# Extract the time scale of the simulation. 
+	timescale = [(sim[-subset])[0], (sim[-1])[0]]
+	timescale = np.divide(timescale, 365)
+
+	# Construct the heatmap plot.
 	plt.figure()
-	plt.imshow(heatmap, 
+	
+	plt.imshow(np.transpose(heatmap), 
 		origin="lower",
-		extent=[t0,t1,-90,90], 
+		extent=[timescale[0],timescale[1],-np.radians(90),np.radians(90)],
+		vmin=Tmin, vmax=Tmax,
 		interpolation="gaussian",
 		cmap=cmocean.cm.thermal,
 		aspect="auto")
