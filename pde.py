@@ -105,25 +105,22 @@ def Get_OceanFraction(lat):
 	return frac
 
 # ============================================ #
+C_Land = 1e6 + 10.1e6
+C_ml50 = 210e6
+C_Ocean = C_ml50 + 10.1e6
 
 def Calculate_HeatCapacity(lat, T):
-	# heat capacities from WK97.
-	C_land = 5.25e6
-	C_ocean = 40*C_land
+	# heat capacity prescription from Vladilo1 et al (2013).
+	C_Ice = (C_Land + 0.2*C_ml50) if(T>=263 and T<=273) else C_Land
 
-	C_seaice = 0.0
-	if(T >= 263 and T <= 273):
-		C_seaice = 9.2*C_land 
-	elif(T < 263):
-		C_seaice = 2*C_land
-
-	# fraction of our latitude band that is ocean.
+	# fraction of the land/ocean that is ice covered.
+	fIce = max(0.0, 1.0 - np.exp((T-273)/10))
 	fOcean = Get_OceanFraction(lat)
+	fLand = (1- fOcean)
 
-	# fraction of that ocean that is sea-ice.
-	fSeaIce = 0.0 if(T > 273) else (1.0 - np.exp((T-273)/10)) 
-
-	return (1-fOcean)*C_land + fOcean*((1-fSeaIce)*C_ocean + fSeaIce*C_seaice)
+	land_term = fLand*((1-fIce)*C_Land + fIce*C_Ice)
+	ocean_term = fOcean*((1-fIce)*C_Ocean + fIce*C_Ice)
+	return (land_term + ocean_term)
 
 # ============================================ #
 
@@ -134,9 +131,18 @@ def Evaluate_DiffusionPDE(lats, temps, j, t):
 	sd1 = grad(lats, temps, j)
 	sd2 = laplace(lats, temps, j)
 
-	Albedo = Calculate_Albedo(lat_temp)
+	Albedo = 0.0
+	Heat_Capacity = 0.0
+
+	# Antartica special case
+	if(lat >= -np.radians(90) and lat <= -np.radians(70)):
+		Heat_Capacity = C_Land
+		Albedo = 0.7
+	else: # Not Antartica
+		Albedo = Calculate_Albedo(lat_temp)
+		Heat_Capacity = Calculate_HeatCapacity(lat, lat_temp)
+
 	IR_Cooling = Calculate_IRCooling(lat_temp)
-	Heat_Capacity = Calculate_HeatCapacity(lat, lat_temp)
 	Flux_In = flux.Calc_DiurnalFlux(lat, t)
 	Diffusivity = 0.5394
 
@@ -173,7 +179,7 @@ def SimulateClimate(SimTime_yrs, iv=400, lat_step=6):
 	times_s = np.append(0, times_s)
 	times_d = list(np.divide(times_s, 86400))
 
-	return list(zip(times_d, TempFrames)), (TIME_STEP / 86400)
+	return list(zip(times_d, TempFrames)), lats, (TIME_STEP / 86400)
 
 # ============================================ #
 

@@ -178,20 +178,14 @@ def TemporalHeatmap(sim, subset=0, sim_step=1, celsius=True):
 
 # ======================================================== #
 
-def CompareModel():
+def CompareModel(sim, lats, timestep=1):
 	def PHM(lat):
 		return 302.3 - 45.3 * np.power(np.sin(lat),2.0)
 
-	# simulate climate.
-	LAT_STEP, SIM_TIME_YR = 6, 50
-	SIM_Lats = [np.radians(k) for k in np.arange(-90, 90+LAT_STEP, LAT_STEP)]
-	IC_Temps = [400 for k in SIM_Lats]
-	SIM_Times, SIM_Temps = pde.EvolveGlobalTemperatures(SIM_Lats, IC_Temps, 365 * SIM_TIME_YR)
-
-	# calc avg. temp for each latitude band,
-	# over LastNYrs of simulation.
-	LastNYrs = 1
-	TempProfiles = SIM_Temps[-365*LastNYrs:]
+	LastNYrs = 10
+	tsteps_per_yr = 365 / timestep
+	SIM_Temps = [df[1] for df in sim]
+	TempProfiles = SIM_Temps[int(-tsteps_per_yr*LastNYrs):]
 	
 	SIM_Avgs = np.array(TempProfiles[0])
 	for k in range(1, len(TempProfiles)):
@@ -208,7 +202,7 @@ def CompareModel():
 	plt.ylabel("temperature")
 	plt.xlabel("latitude")
 
-	plt.plot(SIM_Lats, SIM_Avgs, "x--", color=(1,0,0), linewidth=1.0, label="simulation")
+	plt.plot(lats, SIM_Avgs, "x--", color=(1,0,0), linewidth=1.0, label="simulation")
 	plt.plot(PHM_Lats, PHM_AvgT, color=(0,0,0), linewidth=5.0, alpha=0.25, label="phenomological model")
 
 	plt.grid()
