@@ -4,10 +4,17 @@ import pde
 import matplotlib.pyplot as plt
 import flux
 
-# 1) What is the albedo function actually accounting for?
-# 2) Add in ice fraction for land mass.
-# 3) Fix C & A for Antartica.
+sim, lats, ts = pde.SimulateClimate(30)
+#plots.CompareModel(sim, lats, timestep=ts)
+#plots.TemporalHeatmap(sim, subset=0, sim_step=ts)
 
-sim, lats, ts = pde.SimulateClimate(60)
-plots.CompareModel(sim, lats, timestep=ts)
-# plots.TemporalHeatmap(sim, subset=10, sim_step=ts)
+times = [df[0] for df in sim]
+sp_temps = [df[1][0] for df in sim]
+
+plt.figure()
+plt.xlabel("years", fontsize=25)
+plt.xlabel("temperature", fontsize=25)
+plt.title("South Pole Temperature")
+plt.plot(np.divide(times, 365), sp_temps)
+plt.grid()
+plt.show()

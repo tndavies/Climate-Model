@@ -105,12 +105,24 @@ def Get_OceanFraction(lat):
 	return frac
 
 # ============================================ #
+
+def CorrectTemperature(T_SeaLevel_K, AltitudeGain_m):
+	# lapse rule only holds for temperatures in degrees Celsius.
+	LapseRate = (6.5 / 1000)
+
+	T_SeaLevel_C = T_SeaLevel_K - 273.15
+	CorrectedTemp_C = T_SeaLevel_C - LapseRate*AltitudeGain_m
+	CorrectedTemp_K = CorrectedTemp_C + 273.15
+
+	return CorrectedTemp_K
+
+# ============================================ #
 C_Land = 1e6 + 10.1e6
 C_ml50 = 210e6
 C_Ocean = C_ml50 + 10.1e6
 
 def Calculate_HeatCapacity(lat, T):
-	# heat capacity prescription from Vladilo1 et al (2013).
+	# heat capacity prescription from Vladilo et al (2013).
 	C_Ice = (C_Land + 0.2*C_ml50) if(T>=263 and T<=273) else C_Land
 
 	# fraction of the land/ocean that is ice covered.
@@ -136,11 +148,10 @@ def Evaluate_DiffusionPDE(lats, temps, j, t):
 
 	# Antartica special case
 	if(lat >= -np.radians(90) and lat <= -np.radians(70)):
-		Heat_Capacity = C_Land
-		Albedo = 0.7
-	else: # Not Antartica
-		Albedo = Calculate_Albedo(lat_temp)
-		Heat_Capacity = Calculate_HeatCapacity(lat, lat_temp)
+		lat_temp = CorrectTemperature(lat_temp, 2500)
+	
+	Heat_Capacity = Calculate_HeatCapacity(lat, lat_temp)
+	Albedo = Calculate_Albedo(lat_temp)
 
 	IR_Cooling = Calculate_IRCooling(lat_temp)
 	Flux_In = flux.Calc_DiurnalFlux(lat, t)
@@ -154,7 +165,7 @@ def Evaluate_DiffusionPDE(lats, temps, j, t):
 
 # ============================================ #
 
-def SimulateClimate(SimTime_yrs, iv=400, lat_step=6):
+def SimulateClimate(SimTime_yrs, iv=350, lat_step=6):
 	lats = [np.radians(k) for k in np.arange(-90, 90+lat_step, lat_step)]
 	TempFrames = [[iv for k in lats]]
 
