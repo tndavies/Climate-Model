@@ -98,12 +98,24 @@ def Calc_IceFraction(T):
 	return max(0.0, 1.0 - np.exp((T-273)/10))
 
 # ============================================ #
+pCO2 = 2
+p = pCO2
 
 def Calculate_IRCooling(T):
-	SIGMA = 5.670374419e-8
-	TauIR = 0.79 * np.power((T / 273), 3)
-	return (SIGMA * np.power(T, 4)) / (1 + 0.75 * TauIR)
+	phi = np.log((p/3.3) * 1e-4)
 
+	I = 9.468980-(7.714727e-5*phi)-(2.794778*T) 									\
+	-(3.244753e-3*phi*T)-(3.547406e-4*np.power(phi,2)) 								\
+	+(2.212108e-2*np.power(T,2))+(2.229142e-3*T*np.power(T,2)) 						\
+	+(3.088497e-5*np.power(T,2)*phi)-(2.789815e-5*np.power(T*phi,2)) 				\
+	-(3.442973e-3*np.power(phi,3))-(3.361939e-5*np.power(T,3))						\
+	+(9.173169e-3*T*np.power(phi,3))-(7.775195e-5*np.power(phi,3)*np.power(T,2)) 	\
+	-(1.679112e-7*phi*np.power(T,3))+(6.590999e-8*np.power(phi,2)*np.power(T,3)) 	\
+	+(1.528125e-7*np.power(phi*T,3))-(3.367567e-2*np.power(phi,4)) 					\
+	-(1.631909e-4*np.power(phi*T,4))+(3.663871e-6*np.power(phi,4)*np.power(T,2)) 	\
+	-(9.255646e-9*np.power(phi,4)*np.power(T,3))
+
+	return(I)
 # ============================================ #
 
 def Calculate_Albedo(lat, T, decl):
@@ -139,7 +151,6 @@ def Calculate_Albedo(lat, T, decl):
 	cloud_contrib = -0.078 + 0.65*np.arccos(mu)
 
 	a_s = 0.5*(land_contrib + ocean_contrib + cloud_contrib)
-	p = 400 # pCO2
 
 	# calculate resulting TOA albedo.
 	TOA = 0.0
@@ -222,7 +233,7 @@ def Evaluate_DiffusionPDE(lats, temps, j, t):
 
 # ============================================ #
 
-def SimulateClimate(SimTime_yrs, iv=350, lat_step=6):
+def SimulateClimate(SimTime_yrs, iv=288, lat_step=6):
 	lats = [np.radians(k) for k in np.arange(-90, 90+lat_step, lat_step)]
 	TempFrames = [[iv for k in lats]]
 
