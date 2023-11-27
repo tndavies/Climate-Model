@@ -108,25 +108,31 @@ def Calculate_IRCooling(T):
 
 def Calculate_Albedo(lat, T, decl):
 	# calculate surface albedo first.
-	fOcean = Get_OceanFraction(lat)
-	fLand = (1 - fOcean)
-	fIce = Calc_IceFraction(T)
+	h = 0.0 # sim runs per day, so h=0?
+	mu = np.sin(lat)*np.sin(decl) + np.cos(lat)*np.cos(decl)*np.cos(h)
 
 	a_ice = 0.7
 
+	# land albedo
 	a_land = 0.0
 	if(T > 273): a_land = 0.2
 	elif((T>263) and (T<=273)): a_land=0.45
 	else: a_land = a_ice
 
+	# ocean albedo
 	a_ocean = 0.0
-	if(T > 273): a_ocean = 0.1 # do better here! (read from table)
-	elif((T>263) and (T<=273)): a_ocean=0.55
-	else: a_ocean = a_ice
+	if(T > 273): 
+		# T.Enomoto (2007), Payne's approx.
+		U = np.cos(lat)
+		a_ocean = 0.15*np.power((U-1),2)*(U-0.5) + (0.026 / (1.1*np.power(U,1.7) + 0.065)) 
+	elif((T>263) and (T<=273)): 
+		a_ocean=0.55
+	else: 
+		a_ocean = a_ice
 
-
-	h = 0.0 # sim runs per day, so h=0?
-	mu = np.sin(lat)*np.sin(decl) + np.cos(lat)*np.cos(decl)*np.cos(h)
+	fOcean = Get_OceanFraction(lat)
+	fLand = (1 - fOcean)
+	fIce = Calc_IceFraction(T)
 
 	land_contrib = fLand*((1-fIce)*a_land + fIce*a_ice)
 	ocean_contrib = fOcean*((1-fIce)*a_ocean + fIce*a_ice)
