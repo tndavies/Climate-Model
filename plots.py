@@ -120,7 +120,7 @@ def OceanProfile():
 
 # ======================================================== #
 
-def TemporalHeatmap(sim, subset=0, sim_step=1, celsius=True):
+def TemporalHeatmap(sim, subset=0, sim_step=1):
 	# @note: the 'subset' parameter is how many years relative
 	# to the end of the simulation, we should include within
 	# the plot.
@@ -142,11 +142,8 @@ def TemporalHeatmap(sim, subset=0, sim_step=1, celsius=True):
 	# Gather the temperature array for each timestep
 	# into a big array.
 	temperature_frames = []
-	for dframe in sim:
-		buffer = []
-		for T_kelvin in dframe[1]:
-			buffer.append((T_kelvin-273.15) if celsius else T_kelvin)
-		temperature_frames.append(buffer)
+	for dframe in sim: 
+		temperature_frames.append([T_k for T_k in dframe[1]])
 
 	# Find the min/max temperatures across the entire sim
 	temp_dump = []
@@ -164,7 +161,7 @@ def TemporalHeatmap(sim, subset=0, sim_step=1, celsius=True):
 	heatmap = temperature_frames[-sidx:]
 	plt.imshow(np.transpose(heatmap), 
 		origin="lower",
-		extent=[timescale[0],timescale[1],-np.radians(90),np.radians(90)],
+		extent=[timescale[0],timescale[1],-90, 90],
 		vmin=Tmin, vmax=Tmax,
 		interpolation="gaussian",
 		cmap=cmocean.cm.thermal,

@@ -46,18 +46,6 @@ def laplace(lats, temps, i):
 
 # ============================================ #
 
-def Calculate_Albedo(T):
-	return 0.525 - 0.245 * np.tanh(0.2*T-53.6)
-
-# ============================================ #
-
-def Calculate_IRCooling(T):
-	SIGMA = 5.670374419e-8
-	TauIR = 0.79 * np.power((T / 273), 3)
-	return (SIGMA * np.power(T, 4)) / (1 + 0.75 * TauIR)
-
-# ============================================ #
-
 def Get_OceanFraction(lat):
 	def IsIn(x, a, b): # returns true if 'x in [a, b)'.
 		return (x <= a and x > b)
@@ -106,6 +94,74 @@ def Get_OceanFraction(lat):
 
 # ============================================ #
 
+def Calc_IceFraction(T):
+	return max(0.0, 1.0 - np.exp((T-273)/10))
+
+# ============================================ #
+
+def Calculate_IRCooling(T):
+	SIGMA = 5.670374419e-8
+	TauIR = 0.79 * np.power((T / 273), 3)
+	return (SIGMA * np.power(T, 4)) / (1 + 0.75 * TauIR)
+
+# ============================================ #
+
+def Calculate_Albedo(lat, T, decl):
+	# calculate surface albedo first.
+	fOcean = Get_OceanFraction(lat)
+	fLand = (1 - fOcean)
+	fIce = Calc_IceFraction(T)
+
+	a_ice = 0.7
+
+	a_land = 0.0
+	if(T > 273): a_land = 0.2
+	elif((T>263) and (T<=273)): a_land=0.45
+	else: a_land = a_ice
+
+	a_ocean = 0.0
+	if(T > 273): a_ocean = 0.1 # do better here! (read from table)
+	elif((T>263) and (T<=273)): a_ocean=0.55
+	else: a_ocean = a_ice
+
+
+	h = 0.0 # sim runs per day, so h=0?
+	mu = np.sin(lat)*np.sin(decl) + np.cos(lat)*np.cos(decl)*np.cos(h)
+
+	land_contrib = fLand*((1-fIce)*a_land + fIce*a_ice)
+	ocean_contrib = fOcean*((1-fIce)*a_ocean + fIce*a_ice)
+	cloud_contrib = -0.078 + 0.65*np.arccos(mu)
+
+	a_s = 0.5*(land_contrib + ocean_contrib + cloud_contrib)
+	p = 400 # pCO2
+
+	# calculate resulting TOA albedo.
+	TOA = 0.0
+	if((T > 190) and (T <= 280)):
+		TOA = (-6.8910e-1)+(1.0460*a_s) 						\
+		+(7.8054e-3*T)-(2.8373e-3*p) 							\
+		-(2.8899e-1*mu)-(3.7412e-2*a_s*p) 						\
+		-(6.3499e-3*mu*p)+(2.0122e-1*a_s*mu) 					\
+		-(1.8508e-3*a_s*T)+(1.3649e-4*mu*T) 					\
+		+(9.8581e-5*mu*T)+(7.3239e-2*np.power(a_s,2)) 			\
+		-(1.6555e-5*np.power(T,2))+(6.5817e-4*np.power(p,2)) 	\
+		+(8.1218e-2*np.power(mu,2))
+	elif((T > 280) and (T < 370)):
+		TOA = (1.1082)+(1.5172*a_s)-(5.7993e-3*T) 						\
+		+(1.9705e-2*p)-(1.8670e-1*mu)-(3.1355e-2*a_s*p) 				\
+		-(1.0214e-2*mu*p)+(2.0986e-1*a_s*mu)-(3.7098e-3*a_s*T) 			\
+		-(1.1335e-4*mu*T)+(5.3714e-5*p*T)+(7.5887e-2*np.power(a_s,2)) 	\
+		+(9.2690e-6*np.power(T,2))-(4.1327e-4*np.power(p,2)) 			\
+		+(6.3298e-2*np.power(mu,2))
+	else:
+		# albedo parameterisation invalid for
+		# given temperature!
+		assert(False);
+
+	return TOA
+
+# ============================================ #
+
 def CorrectTemperature(T_SeaLevel_K, AltitudeGain_m):
 	# lapse rule only holds for temperatures in degrees Celsius.
 	LapseRate = (6.5 / 1000)
@@ -126,7 +182,7 @@ def Calculate_HeatCapacity(lat, T):
 	C_Ice = (C_Land + 0.2*C_ml50) if(T>=263 and T<=273) else C_Land
 
 	# fraction of the land/ocean that is ice covered.
-	fIce = max(0.0, 1.0 - np.exp((T-273)/10))
+	fIce = Calc_IceFraction(T)
 	fOcean = Get_OceanFraction(lat)
 	fLand = (1- fOcean)
 
@@ -137,24 +193,19 @@ def Calculate_HeatCapacity(lat, T):
 # ============================================ #
 
 def Evaluate_DiffusionPDE(lats, temps, j, t):
-	lat = lats[j]
-	lat_temp = temps[j]
-
+	lat, lat_temp = lats[j], temps[j]
 	sd1 = grad(lats, temps, j)
 	sd2 = laplace(lats, temps, j)
-
-	Albedo = 0.0
-	Heat_Capacity = 0.0
 
 	# Antartica special case
 	if(lat >= -np.radians(90) and lat <= -np.radians(70)):
 		lat_temp = CorrectTemperature(lat_temp, 2500)
 	
+	orbital_decl = flux.Calc_Declination(t)
 	Heat_Capacity = Calculate_HeatCapacity(lat, lat_temp)
-	Albedo = Calculate_Albedo(lat_temp)
-
+	Albedo = Calculate_Albedo(lat, lat_temp, orbital_decl)
 	IR_Cooling = Calculate_IRCooling(lat_temp)
-	Flux_In = flux.Calc_DiurnalFlux(lat, t)
+	Flux_In = flux.Calc_DiurnalFlux(lat, orbital_decl, t)
 	Diffusivity = 0.5394
 
 	term0 = Flux_In * (1 - Albedo)

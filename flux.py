@@ -139,10 +139,9 @@ def ValidateSolarRadCalculation():
 
 # ============================================ #
 
-def Calc_DiurnalFlux(lat, t_s):
+def Calc_DiurnalFlux(lat, decl, t_s):
 	Earth_e = 0.01671
 
-	decl = Calc_Declination(t_s)
 	q = Calc_SolarRadiation(t_s)
 
 	flux = 0.0
