@@ -99,11 +99,6 @@ def Calc_IceFraction(T):
 
 # ============================================ #
 
-def foo_Calculate_IRCooling(T):
-	SIGMA = 5.670374419e-8
-	TauIR = 0.79 * np.power((T / 273), 3)
-	return (SIGMA * np.power(T, 4)) / (1 + 0.75 * TauIR)
-
 def Calculate_IRCooling(T):
 	p = 4.21e-4
 	x = p / 3.3e-4
@@ -111,9 +106,9 @@ def Calculate_IRCooling(T):
 
 	I = 9.468980-7.714727e-5*phi-2.794778*T-3.244752e-3*phi*T-3.547406e-4*pow(phi,2) 		\
 		+2.212108e-2*pow(T,2) + 2.229142e-3*T*pow(phi,2)+3.088497e-5*phi*pow(T,2) 			\
-		-2.789815e-5*pow(phi,2)*pow(T,2)-3.442973e-3*pow(phi,3)-3.361939e-5*pow(T,3) 		\
+		-2.789815e-5*pow(phi*T,2)-3.442973e-3*pow(phi,3)-3.361939e-5*pow(T,3)		 		\
 		+9.173169e-3*pow(phi,3)*T-7.775195e-5*pow(phi,3)*pow(T,2)-1.679112e-7*phi*pow(T,3) 	\
-		+6.590999e-8*pow(phi,2)*pow(T,3)+1.528125e-7*pow(phi,3)*pow(T,3) 					\
+		+6.590999e-8*pow(phi,2)*pow(T,3)+1.528125e-7*pow(phi*T,3)		 					\
 		-3.367567e-2*pow(phi,4)-1.631909e-4*pow(phi,4)*T+3.663871e-6*pow(phi,4)*pow(T,2) 	\
 		-9.255646e-9*pow(phi,4)*pow(T,3)
 
@@ -206,16 +201,5 @@ def SimulateClimate(SimTime_yrs, iv=360, lat_step=6):
 	times_d = list(np.divide(times_s, 86400))
 
 	return list(zip(times_d, TempFrames)), lats, (TIME_STEP / 86400)
-
-# ============================================ #
-
-def DumpSim(sim):
-	for ds in sim:
-		time = ds[0]
-		temps = ds[1]
-
-		print("At time=" + str(time) + " days")
-		print(temps)
-		print("")
 
 # ============================================ #
