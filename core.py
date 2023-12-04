@@ -4,17 +4,16 @@ import pde
 import matplotlib.pyplot as plt
 import flux
 
-sim, lats, ts = pde.SimulateClimate(1)
-# plots.CompareModel(sim, lats, timestep=ts)
-plots.TemporalHeatmap(sim, sim_step=ts)
+sim, lats, ts = pde.SimulateClimate(15)
+# plots.TemporalHeatmap(sim, sim_step=ts)
+plots.CompareModel(sim, lats, timestep=ts)
 
-# times = [df[0] for df in sim]
-# sp_temps = [df[1][0] for df in sim]
-
+# temps = np.linspace(200,350, 1000)
+# irs = [pde.Calculate_IRCooling(T) for T in temps]
+# irs2 = [pde.foo_Calculate_IRCooling(T) for T in temps]
 # plt.figure()
-# plt.xlabel("years", fontsize=25)
-# plt.xlabel("temperature", fontsize=25)
-# plt.title("South Pole Temperature")
-# plt.plot(np.divide(times, 365), sp_temps)
+# plt.plot(temps, irs, label="greenhouse")
+# plt.plot(temps, irs2, label="simple")
 # plt.grid()
+# plt.legend()
 # plt.show()

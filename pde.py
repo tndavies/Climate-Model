@@ -98,84 +98,31 @@ def Calc_IceFraction(T):
 	return max(0.0, 1.0 - np.exp((T-273)/10))
 
 # ============================================ #
-pCO2 = 2
-p = pCO2
+
+def foo_Calculate_IRCooling(T):
+	SIGMA = 5.670374419e-8
+	TauIR = 0.79 * np.power((T / 273), 3)
+	return (SIGMA * np.power(T, 4)) / (1 + 0.75 * TauIR)
 
 def Calculate_IRCooling(T):
-	phi = np.log((p/3.3) * 1e-4)
+	p = 4.21e-4
+	x = p / 3.3e-4
+	phi = np.log(x)
 
-	I = 9.468980-(7.714727e-5*phi)-(2.794778*T) 									\
-	-(3.244753e-3*phi*T)-(3.547406e-4*np.power(phi,2)) 								\
-	+(2.212108e-2*np.power(T,2))+(2.229142e-3*T*np.power(T,2)) 						\
-	+(3.088497e-5*np.power(T,2)*phi)-(2.789815e-5*np.power(T*phi,2)) 				\
-	-(3.442973e-3*np.power(phi,3))-(3.361939e-5*np.power(T,3))						\
-	+(9.173169e-3*T*np.power(phi,3))-(7.775195e-5*np.power(phi,3)*np.power(T,2)) 	\
-	-(1.679112e-7*phi*np.power(T,3))+(6.590999e-8*np.power(phi,2)*np.power(T,3)) 	\
-	+(1.528125e-7*np.power(phi*T,3))-(3.367567e-2*np.power(phi,4)) 					\
-	-(1.631909e-4*np.power(phi*T,4))+(3.663871e-6*np.power(phi,4)*np.power(T,2)) 	\
-	-(9.255646e-9*np.power(phi,4)*np.power(T,3))
+	I = 9.468980-7.714727e-5*phi-2.794778*T-3.244752e-3*phi*T-3.547406e-4*pow(phi,2) 		\
+		+2.212108e-2*pow(T,2) + 2.229142e-3*T*pow(phi,2)+3.088497e-5*phi*pow(T,2) 			\
+		-2.789815e-5*pow(phi,2)*pow(T,2)-3.442973e-3*pow(phi,3)-3.361939e-5*pow(T,3) 		\
+		+9.173169e-3*pow(phi,3)*T-7.775195e-5*pow(phi,3)*pow(T,2)-1.679112e-7*phi*pow(T,3) 	\
+		+6.590999e-8*pow(phi,2)*pow(T,3)+1.528125e-7*pow(phi,3)*pow(T,3) 					\
+		-3.367567e-2*pow(phi,4)-1.631909e-4*pow(phi,4)*T+3.663871e-6*pow(phi,4)*pow(T,2) 	\
+		-9.255646e-9*pow(phi,4)*pow(T,3)
 
-	return(I)
+	return I
+
 # ============================================ #
 
-def Calculate_Albedo(lat, T, decl):
-	# calculate surface albedo first.
-	h = 0.0 # sim runs per day, so h=0?
-	mu = np.sin(lat)*np.sin(decl) + np.cos(lat)*np.cos(decl)*np.cos(h)
-
-	a_ice = 0.7
-
-	# land albedo
-	a_land = 0.0
-	if(T > 273): a_land = 0.2
-	elif((T>263) and (T<=273)): a_land=0.45
-	else: a_land = a_ice
-
-	# ocean albedo
-	a_ocean = 0.0
-	if(T > 273): 
-		# T.Enomoto (2007), Payne's approx.
-		U = np.cos(lat)
-		a_ocean = 0.15*np.power((U-1),2)*(U-0.5) + (0.026 / (1.1*np.power(U,1.7) + 0.065)) 
-	elif((T>263) and (T<=273)): 
-		a_ocean=0.55
-	else: 
-		a_ocean = a_ice
-
-	fOcean = Get_OceanFraction(lat)
-	fLand = (1 - fOcean)
-	fIce = Calc_IceFraction(T)
-
-	land_contrib = fLand*((1-fIce)*a_land + fIce*a_ice)
-	ocean_contrib = fOcean*((1-fIce)*a_ocean + fIce*a_ice)
-	cloud_contrib = -0.078 + 0.65*np.arccos(mu)
-
-	a_s = 0.5*(land_contrib + ocean_contrib + cloud_contrib)
-
-	# calculate resulting TOA albedo.
-	TOA = 0.0
-	if((T > 190) and (T <= 280)):
-		TOA = (-6.8910e-1)+(1.0460*a_s) 						\
-		+(7.8054e-3*T)-(2.8373e-3*p) 							\
-		-(2.8899e-1*mu)-(3.7412e-2*a_s*p) 						\
-		-(6.3499e-3*mu*p)+(2.0122e-1*a_s*mu) 					\
-		-(1.8508e-3*a_s*T)+(1.3649e-4*mu*T) 					\
-		+(9.8581e-5*mu*T)+(7.3239e-2*np.power(a_s,2)) 			\
-		-(1.6555e-5*np.power(T,2))+(6.5817e-4*np.power(p,2)) 	\
-		+(8.1218e-2*np.power(mu,2))
-	elif((T > 280) and (T < 370)):
-		TOA = (1.1082)+(1.5172*a_s)-(5.7993e-3*T) 						\
-		+(1.9705e-2*p)-(1.8670e-1*mu)-(3.1355e-2*a_s*p) 				\
-		-(1.0214e-2*mu*p)+(2.0986e-1*a_s*mu)-(3.7098e-3*a_s*T) 			\
-		-(1.1335e-4*mu*T)+(5.3714e-5*p*T)+(7.5887e-2*np.power(a_s,2)) 	\
-		+(9.2690e-6*np.power(T,2))-(4.1327e-4*np.power(p,2)) 			\
-		+(6.3298e-2*np.power(mu,2))
-	else:
-		# albedo parameterisation invalid for
-		# given temperature!
-		assert(False);
-
-	return TOA
+def Calculate_Albedo(T):
+	return 0.525 - 0.245 * np.tanh(0.2*T-53.6)
 
 # ============================================ #
 
@@ -220,7 +167,7 @@ def Evaluate_DiffusionPDE(lats, temps, j, t):
 	
 	orbital_decl = flux.Calc_Declination(t)
 	Heat_Capacity = Calculate_HeatCapacity(lat, lat_temp)
-	Albedo = Calculate_Albedo(lat, lat_temp, orbital_decl)
+	Albedo = Calculate_Albedo(lat_temp)
 	IR_Cooling = Calculate_IRCooling(lat_temp)
 	Flux_In = flux.Calc_DiurnalFlux(lat, orbital_decl, t)
 	Diffusivity = 0.5394
@@ -233,11 +180,11 @@ def Evaluate_DiffusionPDE(lats, temps, j, t):
 
 # ============================================ #
 
-def SimulateClimate(SimTime_yrs, iv=288, lat_step=6):
+def SimulateClimate(SimTime_yrs, iv=360, lat_step=6):
 	lats = [np.radians(k) for k in np.arange(-90, 90+lat_step, lat_step)]
 	TempFrames = [[iv for k in lats]]
 
-	TIME_STEP = 86400 
+	TIME_STEP = 86400
 	times_s = np.arange(TIME_STEP, SimTime_yrs * 365.25 * 86400, TIME_STEP)
 
 	print("Simulating Earth's Climate ..")

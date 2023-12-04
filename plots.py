@@ -179,7 +179,7 @@ def CompareModel(sim, lats, timestep=1):
 	def PHM(lat):
 		return 302.3 - 45.3 * np.power(np.sin(lat),2.0)
 
-	LastNYrs = 10
+	LastNYrs = 5
 	tsteps_per_yr = 365 / timestep
 	SIM_Temps = [df[1] for df in sim]
 	TempProfiles = SIM_Temps[int(-tsteps_per_yr*LastNYrs):]
