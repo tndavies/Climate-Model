@@ -1,9 +1,13 @@
-from alive_progress import alive_bar
-import matplotlib.pyplot as plt
-import numpy as np
+# ---------------------------------------------------------------- #
+# 							Imports 							
+# ---------------------------------------------------------------- #
 from data import Earth_Geography
 from data import Climate_Temperatures
 from data import Climate_CO2_Concentrations
+
+from alive_progress import alive_bar
+import matplotlib.pyplot as plt
+import numpy as np
 
 # ---------------------------------------------------------------- #
 # 						Simulation Parameters 							
@@ -112,13 +116,18 @@ def calculate_Albedo(T: float):
 	# that is reflected back by the Earth's surface;
 	# accounting for the presence of snow/ice at
 	# colder temperatures. (Spiegel, model 2)
-
 	return 0.525 - 0.245 * np.tanh(0.2*T-53.6)
 
 # ---------------------------------------------------------------- #
 # 						IR Cooling Function (I) 							
 # ---------------------------------------------------------------- #
 def calculate_IRCooling(T: float):
+	Band_Emission = 5.67e-8 * (T**4)
+	Atmospheric_Retension = ((T / 273)**3) * 0.635
+
+	return Band_Emission / (1 + Atmospheric_Retension)
+
+def calculate_IRCooling_Basic(T: float):
 	SIGMA = 5.670374419e-8
 	TauIR = 0.79 * np.power((T / 273), 3)
 	return (SIGMA * np.power(T, 4)) / (1 + 0.75 * TauIR)
@@ -212,8 +221,10 @@ def calc_Temp_tROC(lats: list, temps: list, band_index: int, t: float):
 	return Temp_tROC
 
 def SimClimate(starting_year: int, sim_duration: float):
-	# Simulates the climate for the specified number of
-	# years, via the 'sim_duration' parameter.
+	# Simulates the climate, starting at the specified year,
+	# for the specified number of years given by 'sim_duration';
+	# returns each time-point, relative to starting years, along
+	# with the temperature profile for each of these times.
 	# ---------------------------------------------------
 
 	Duration = years_to_days(sim_duration)
@@ -270,19 +281,22 @@ def SimClimate(starting_year: int, sim_duration: float):
 			Time_Points[k] = starting_year + days_to_years(Time_Points[k])
 
 	return Time_Points, Temperature_Sets
+
 # ---------------------------------------------------------------- #
 # 							Main Code Path 							
 # ---------------------------------------------------------------- #
 
 times, temps_sets = SimClimate(1961, 60)
-temps = []
-for tp in temps_sets:
-	temps.append(np.mean(tp))
+idxs = np.arange(0, len(temps_sets)-1, 365)
+foo, temps = [], []
+for k in idxs:
+	foo.append(times[k])
+	temps.append(np.mean(temps_sets[k]))
 
 plt.figure()
 plt.xlabel("Years")
 plt.ylabel("Global Average Temperature [K]")
-plt.plot(times, temps, color=(0,0,0), label="model")
+plt.plot(foo, temps, ".-", color=(0,0,0), label="model")
 
 time_data = []
 temps_data = []
@@ -290,7 +304,7 @@ for k in Climate_Temperatures:
 	time_data.append(k)
 	temps_data.append(to_kelvin(Climate_Temperatures[k]))
 
-plt.plot(time_data, temps_data, ".--", color=(0.157, 0.89, 0.533),label="historical")
+plt.plot(time_data, temps_data, "x--", color=(0.157, 0.89, 0.533),label="historical")
 plt.grid()
 plt.legend()
 plt.show()
