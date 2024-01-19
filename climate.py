@@ -7,6 +7,7 @@ from data import Climate_CO2_Concentrations
 
 from alive_progress import alive_bar
 from scipy.optimize import minimize
+from scipy.optimize import Bounds
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -20,6 +21,11 @@ def seconds_to_years(x): 	return x / (86400 * 365)
 def to_kelvin(x): 			return x + 273.15
 def to_celsius(x): 			return x - 273.15
 def years_to_seconds(x):	return x * 365 * 86400
+
+def calc_HistoricPeriod():
+	First_Year = list(Climate_Temperatures)[0] 
+	Last_Year = list(Climate_Temperatures)[-1]
+	return years_to_seconds(Last_Year - First_Year)
 
 def Is_AntarcticLatitudeBand(lat: float):
 	return lat >= -np.radians(90) and lat <= -np.radians(70)
@@ -56,26 +62,33 @@ def calc_GlobalAverageTemperature(lat_grid: list, temps: list):
 
 	return np.sum(Weighted_Temps) / np.sum(Weights)
 
-def calc_ComparisonMetric(params):
+def calc_ComparisonMetric(lat_grid: list, times: list, temp_frames: list):
 		# Computes the sum of the residuls between the 
 		# historical record and the model.
 
-		Sim_Duration = list(Climate_Temperatures)[-1] - Starting_Year
-		Lat_Grid, Raw_Times, Raw_TempSets = SimClimate(sim_duration, params[0], params[1])
-		
-		Raw_Times = np.array(Raw_Times)
-		Raw_TempSets = np.array(Raw_TempSets)
-
-		Sampled_Times = Raw_Times[0::365]
-		Sampled_Temps = Raw_TempSets[0::365]
+		Sampled_Times = times[0::365]
+		Sampled_Temps = temp_frames[0::365]
 
 		Similarity_Metric = 0.0
 		for k in range(len(Sampled_Times)):
-			Historical_Temp = Climate_Temperatures[Sampled_Times[k]]
-			Global_Average_Temp = calc_GlobalAverageTemperature(Lat_Grid, Sampled_Temps[k])
+			Historical_Temp = to_kelvin(Climate_Temperatures[Sampled_Times[k]])
+			Global_Average_Temp = calc_GlobalAverageTemperature(lat_grid, Sampled_Temps[k])
 			Similarity_Metric += (Global_Average_Temp - Historical_Temp)**2
 
 		return Similarity_Metric
+
+def find_OptimalCoolingFunction():
+	def Objective_Func(model_params: list):
+		(exp, coeff) = model_params
+		Lat_Grid, Times, Temp_Sets = SimClimate(calc_HistoricPeriod(), exp, coeff)
+		X = calc_ComparisonMetric(Lat_Grid, Times, Temp_Sets)
+		print("exp={exp}, coeff={coeff}, X={x}".format(exp=exp, coeff=coeff, x=X))
+		return X 
+
+	# Co2 Exponent is unbounded (-inf, inf), but the retention factor
+	# must be in the range (0, inf).
+	result = minimize(Objective_Func, x0=[0,1], bounds=Bounds([-np.inf, 0.0], [np.inf, np.inf]))
+	print(result)
 
 # ---------------------------------------------------------------- #
 # 						Simulation Parameters 							
@@ -96,6 +109,8 @@ C_Transitioning_Ice = 5.31e7 		# [J/K]
 C_Land = 1.11e7 					# [J/K]
 C_Ocean = 2.201e8 					# [J/K]
 Diffusivity = 0.5394				# [???]
+Co2_Exp = 0.05114966426233368
+Ret_Factor = 0.6786585695589182
 
 # ---------------------------------------------------------------- #
 # 					Diurnal Solar Radiation (S) 							
@@ -189,6 +204,7 @@ def calculate_IRCooling(Co2_Exp: float, Retention_Factor: float, T: float, t: fl
 	LastDataYear = list(Climate_CO2_Concentrations)[-1]
 	CO2_Concentration = Climate_CO2_Concentrations[LastDataYear]
 	Current_Period = int(Starting_Year + seconds_to_years(t))
+
 	if Current_Period in Climate_CO2_Concentrations:
 		CO2_Concentration = Climate_CO2_Concentrations[Current_Period]
 
@@ -287,7 +303,7 @@ def calc_Temp_tROC(lats: list, temps: list, Co2_Exp: float, Retention_Factor: fl
 
 	return Temp_tROC
 
-def SimClimate(sim_duration: float, Co2_Exp: float, Retention_Factor: float):
+def SimClimate(sim_duration: float):
 	# Simulates the climate, starting at the specified year,
 	# for the specified number of years given by 'sim_duration';
 	# returns each time-point, relative to starting years, along
@@ -320,7 +336,7 @@ def SimClimate(sim_duration: float, Co2_Exp: float, Retention_Factor: float):
 			# ----- 
 			New_TemperatureProfile = []
 			for k in range(len(Lat_Grid)):
-				Temp_tROC =	calc_Temp_tROC(Lat_Grid, Curr_TemperatureProfile, Co2_Exp, Retention_Factor,  k, Time)
+				Temp_tROC =	calc_Temp_tROC(Lat_Grid, Curr_TemperatureProfile, Co2_Exp, Ret_Factor,  k, Time)
 
 				Band_Temp = Curr_TemperatureProfile[k]
 				New_BandTemperature = Band_Temp + Temp_tROC * Time_Step
@@ -355,3 +371,23 @@ def SimClimate(sim_duration: float, Co2_Exp: float, Retention_Factor: float):
 # 							Main Code Path 							
 # ---------------------------------------------------------------- #
 
+plt.figure()
+
+Lat_Grid, Times, Temp_Sets = SimClimate(calc_HistoricPeriod())
+
+Sampled_Times = np.array(Times)[0::365]
+Sampled_TempSets = np.array(Temp_Sets)[0::365]
+temps = []
+
+for tset in Sampled_TempSets:
+	temps.append(calc_GlobalAverageTemperature(Lat_Grid, tset))
+plt.plot(Sampled_Times, temps, label="model (optimal)")
+
+Historic_Temps = []
+for t in Sampled_Times:
+	ht = Climate_Temperatures[t]
+	Historic_Temps.append(to_kelvin(ht))
+plt.plot(Sampled_Times, Historic_Temps, ".--", label="Historic Record", color=(1,0,0), linewidth=1.2, alpha=0.35)
+
+plt.legend()
+plt.show()
