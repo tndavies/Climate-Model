@@ -1,14 +1,13 @@
 # ---------------------------------------------------------------- #
 # 							Imports 							
 # ---------------------------------------------------------------- #
+from dataclasses import dataclass
 from data import Earth_Geography
 from data import Climate_Temperatures
 from data import Climate_CO2_Concentrations
-
 from alive_progress import alive_bar
 from scipy.optimize import minimize
 from scipy.optimize import Bounds
-import matplotlib.pyplot as plt
 import numpy as np
 
 # ---------------------------------------------------------------- #
@@ -221,7 +220,7 @@ def calc_IceFraction(T: float):
 	# within a latitude band, that is covered in snow/ice.
 	# (Vladilo, A.6)
 	param = (T - 273.0) / 10.0
-	return max(0, 1 - np.exp(param))
+	return np.maximum(0, 1 - np.exp(param))
 
 def get_OceanFraction(lat: float):
 	# Performs a lookup into Earth's geography table to 
@@ -303,7 +302,14 @@ def calc_Temp_tROC(lats: list, temps: list, Co2_Exp: float, Retention_Factor: fl
 
 	return Temp_tROC
 
-def SimClimate(sim_duration: float):
+@dataclass
+class Sim_Pack:
+	lats: list
+	times: list
+	tdists: list
+
+def SimClimate(sim_duration: float, altitude_correction: bool = True):
+	# ---------------------------------------------------
 	# Simulates the climate, starting at the specified year,
 	# for the specified number of years given by 'sim_duration';
 	# returns each time-point, relative to starting years, along
@@ -317,8 +323,7 @@ def SimClimate(sim_duration: float):
 	# Retrieve the historical global average temperature for
 	# the specified starting year of the simulation.
 	assert (Starting_Year in Climate_Temperatures), "Starting year of simulation not present in historical record."
-	Starting_Temperature = Climate_Temperatures[Starting_Year]
-	Starting_Temperature = to_kelvin(Starting_Temperature)
+	Starting_Temperature = to_kelvin(Climate_Temperatures[Starting_Year])
 
 	Temperature_Sets = [[Starting_Temperature] * len(Lat_Grid)]
 	Time_Points = [0] # [Days]
@@ -344,7 +349,7 @@ def SimClimate(sim_duration: float):
 
 				# Correct sea-level temperature for Antarctica, so we get the
 				# correct temperature at the surface of the continent. 
-				if Is_AntarcticLatitudeBand(Lat_Grid[k]):
+				if Is_AntarcticLatitudeBand(Lat_Grid[k]) and altitude_correction:
 					Band_Temp = Correct_SeaLevelTemperature(Band_Temp, Antarctica_Altitude)
 
 				New_TemperatureProfile.append(New_BandTemperature)
@@ -365,29 +370,4 @@ def SimClimate(sim_duration: float):
 		for k in range(len(Time_Points)):
 			Time_Points[k] = Starting_Year + seconds_to_years(Time_Points[k])
 
-	return Lat_Grid, Time_Points, Temperature_Sets
-
-# ---------------------------------------------------------------- #
-# 							Main Code Path 							
-# ---------------------------------------------------------------- #
-
-plt.figure()
-
-Lat_Grid, Times, Temp_Sets = SimClimate(calc_HistoricPeriod())
-
-Sampled_Times = np.array(Times)[0::365]
-Sampled_TempSets = np.array(Temp_Sets)[0::365]
-temps = []
-
-for tset in Sampled_TempSets:
-	temps.append(calc_GlobalAverageTemperature(Lat_Grid, tset))
-plt.plot(Sampled_Times, temps, label="model (optimal)")
-
-Historic_Temps = []
-for t in Sampled_Times:
-	ht = Climate_Temperatures[t]
-	Historic_Temps.append(to_kelvin(ht))
-plt.plot(Sampled_Times, Historic_Temps, ".--", label="Historic Record", color=(1,0,0), linewidth=1.2, alpha=0.35)
-
-plt.legend()
-plt.show()
+	return Sim_Pack(Lat_Grid, Time_Points, Temperature_Sets)
