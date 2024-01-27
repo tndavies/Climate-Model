@@ -254,6 +254,20 @@ def calc_AverageHeatCapacity(lat: float, T: float):
 	return Average_HeatCapacity
 
 # ---------------------------------------------------------------- #
+# 						IPCC Emission Pathways 							
+# ---------------------------------------------------------------- #
+def A1FI_Pathway(t):
+	a,b,c = -3.39453205e-03, 1.41847016e+01, -1.47897304e+04
+	Co2Emissions = a*(t**2) + b*t + c # Units: Gigatonnes of Carbon
+	return Co2Emissions / 2.08 # Convert to ppm
+
+def B1_Pathway(t):
+	a,b,c = -1.53615801e-03, 6.23548075e+00, -6.31645919e+03
+	Co2Emissions = a*(t**2) + b*t + c # Units: Gigatonnes of Carbon
+	return Co2Emissions / 2.08 # Convert to ppm
+
+
+# ---------------------------------------------------------------- #
 # 							1D-EBM PDE 							
 # ---------------------------------------------------------------- #
 def calc_Temp_sROC1(lats: float, temps: float, k: int):

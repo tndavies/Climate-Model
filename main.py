@@ -6,6 +6,8 @@ import climate
 from climate import SimClimate
 from climate import years_to_seconds
 from climate import days_to_seconds
+from climate import A1FI_Pathway
+from climate import B1_Pathway
 
 from data import Climate_Temperatures
 from data import Climate_CO2_Concentrations
@@ -147,10 +149,48 @@ def plot_AntarcticaCorrection():
 	plt.savefig(fname="thesis/{name}.pdf".format(name=Plot_Name), bbox_inches="tight")
 
 # ---------------------------------------------------------------- #
+# 				Figure: Projected Co2 Emissions	 							
+# ---------------------------------------------------------------- #
+def plot_ProjectedCo2():
+	Plot_Name = "projected_co2"
+	figure, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False)
+
+	obs_times, obs_co2 = [], []
+	for t in Climate_CO2_Concentrations:
+		emissions = Climate_CO2_Concentrations[t]
+		obs_co2.append(emissions)
+		obs_times.append(t)
+
+	proj_times = np.linspace(obs_times[-1], 2100)
+
+	A1FI_co2 = []
+	Total_Emissions = obs_co2[-1]
+	for t in proj_times:
+		Total_Emissions += A1FI_Pathway(t)
+		A1FI_co2.append(Total_Emissions)
+
+	B1_co2 = []
+	Total_Emissions = obs_co2[-1]
+	for t in proj_times:
+		Total_Emissions += B1_Pathway(t)
+		B1_co2.append(Total_Emissions)
+
+
+	axis.plot(obs_times, obs_co2, "k-", label="Observed")
+	axis.plot(proj_times, A1FI_co2, "r--", label="A1FI")
+	axis.plot(proj_times, B1_co2, "g--", label="B1")
+
+	axis.set_xlabel("Year")
+	axis.set_ylabel("Concentration (ppm)")
+	plt.legend()
+	plt.show()
+
+# ---------------------------------------------------------------- #
 # 						Main Code Path	 							
 # ---------------------------------------------------------------- #
 # plot_GATCO2()
 # plot_SolarIntensities()
 # plot_AlbedoModel()
-plot_IceModel()
+# plot_IceModel()
 # plot_AntarcticaCorrection()
+plot_ProjectedCo2()
