@@ -2,19 +2,19 @@ import matplotlib.pyplot as plt
 from cycler import cycler
 import numpy as np
 
-import climate
 from climate import SimClimate
 from climate import years_to_seconds
 from climate import days_to_seconds
 from climate import A1FI_Pathway
 from climate import B1_Pathway
-
-from data import Climate_Temperatures
-from data import Climate_CO2_Concentrations
+from climate import calc_GlobalAverageTemperature
+from climate import calc_AntarcticAverageTemperature
+from climate import calc_AntarcticAlbedo
+from data import Historic_Temperatures
 
 import scienceplots
 
-plt.style.use('science')
+# plt.style.use('science')
 
 Default_LineStyles = cycler(linestyle=['-', '--', '-.', ':']) \
 					+ cycler(color=['k','r','g','b'])
@@ -26,15 +26,14 @@ Fig_Size = (8.8, 5.5)
 # 				Figure: Historic Climate GAT/CO2 Data	 							
 # ---------------------------------------------------------------- #
 def plot_GATCO2():
-	Plot_Name = "gat_co2"
 	figure, (co2, gat) = plt.subplots(nrows=2,ncols=1,sharex=True)
 
 	# ------------------------------------------
-	times = [yr for yr in Climate_Temperatures]
+	times = [yr for yr in Historic_Temperatures]
 	gats, co2_ppms = [], []
 	for t in times:
-		co2_ppms.append(Climate_CO2_Concentrations[t])
-		gats.append(Climate_Temperatures[t])
+		co2_ppms.append(Historic_Co2[t])
+		gats.append(Historic_Temperatures[t])
 	# ------------------------------------------
 
 	gat.plot(times, gats)
@@ -45,13 +44,11 @@ def plot_GATCO2():
 	co2.set_ylabel("Concentration (ppm)")
 	
 	plt.show()
-	# plt.savefig(fname="thesis/{name}.pdf".format(name=Plot_Name), bbox_inches="tight")
 
 # ---------------------------------------------------------------- #
 # 					Figure: Solar Intensity 	 							
 # ---------------------------------------------------------------- #
 def plot_SolarIntensities():
-	Plot_Name = "solar_rad"
 	figure, (axis) = plt.subplots(nrows=1,ncols=1,figsize=Fig_Size,sharex=False)
 
 	# ------------------------------------------
@@ -71,13 +68,11 @@ def plot_SolarIntensities():
 	axis.set_ylabel("Intensity " + r'(W$m^{-2}$)')
 	
 	plt.show()
-	# plt.savefig(fname="thesis/{name}.pdf".format(name=Plot_Name), bbox_inches="tight")
 
 # ---------------------------------------------------------------- #
 # 					Figure: Albedo Model 	 							
 # ---------------------------------------------------------------- #
 def plot_AlbedoModel():
-	Plot_Name = "albedo"
 	figure, (axis) = plt.subplots(nrows=1,ncols=1,figsize=Fig_Size,sharex=False)
 
 	# ------------------------------------------
@@ -90,13 +85,11 @@ def plot_AlbedoModel():
 	axis.set_ylabel("Albedo")
 	
 	plt.show()
-	# plt.savefig(fname="thesis/{name}.pdf".format(name=Plot_Name), bbox_inches="tight")
 	
 # ---------------------------------------------------------------- #
 # 					Figure: Ice Model 	 							
 # ---------------------------------------------------------------- #
 def plot_IceModel():
-	Plot_Name = "ice"
 	figure, (axis) = plt.subplots(nrows=1,ncols=1,figsize=Fig_Size,sharex=False)
 
 	# ------------------------------------------
@@ -109,55 +102,52 @@ def plot_IceModel():
 	axis.set_ylabel("Ice Fraction")
 	
 	plt.show()
-	# plt.savefig(fname="thesis/{name}.pdf".format(name=Plot_Name), bbox_inches="tight")
 
 # ---------------------------------------------------------------- #
 # 			Figure: Antarctica Altitude Correction 	 							
 # ---------------------------------------------------------------- #
+
 def plot_AntarcticaCorrection():
-	Plot_Name = "antrc_corr"
-	figure, (axis) = plt.subplots(nrows=1,ncols=1,figsize=Fig_Size,sharex=False)
+	figure, (Temp_axis, Alb_axis) = plt.subplots(nrows=2,ncols=1,figsize=Fig_Size,sharex=True)
 
-	# ------------------------------------------
-	def calc_IceCoverages(enable_altitude_correction: bool):
-		sim_pack = SimClimate(climate.calc_HistoricPeriod(), altitude_correction=enable_altitude_correction)
+	Sim_End = 2022
+	uSim = SimClimate(None, Sim_End, enable_AltCorr=False)
+	cSim = SimClimate(None, Sim_End, enable_AltCorr=True)
 
-		Ice_Coverages = []
-		for tdist in sim_pack.tdists:
-			n=0
-			IceFracs = []
-			while climate.Is_AntarcticLatitudeBand(sim_pack.lats[n]):
-				fIce = climate.calc_IceFraction(tdist[n])
-				IceFracs.append(fIce)
-				n += 1
-
-			Ice_Coverages.append(np.mean(IceFracs)) 
-
-		return sim_pack.times, Ice_Coverages
-	# ------------------------------------------
-
-	times, coverage = calc_IceCoverages(False)
-	axis.plot(times, coverage)
-
-	times, coverage = calc_IceCoverages(True)
-	axis.plot(times, coverage)
-
-
-	axis.set_xlabel("Year")
-	axis.set_ylabel("Ice Coverage")
+	uTimes = np.array(uSim.times)
+	uTemps = np.array(calc_AntarcticAverageTemperature(uSim))
+	uICovs = np.array(calc_AntarcticAlbedo(uSim))
 	
-	plt.savefig(fname="thesis/{name}.pdf".format(name=Plot_Name), bbox_inches="tight")
+	cTimes = np.array(cSim.times)
+	cTemps = np.array(calc_AntarcticAverageTemperature(cSim))
+	cICovs = np.array(calc_AntarcticAlbedo(cSim))
+
+	n = int(365 / 12)
+
+	Temp_axis.plot(uTimes[::n], uTemps[::n], "k--", linewidth=1.0, label="No altitude correction")
+	Alb_axis.plot(uTimes[::n], uICovs[::n], "k--", linewidth=1.0, label="No altitude correction")
+
+	Temp_axis.plot(cTimes[::n], cTemps[::n], "r-", linewidth=1.2, label="With altitude correction")
+	Alb_axis.plot(cTimes[::n], cICovs[::n], "r-", linewidth=1.2, label="With altitude correction")
+
+	Temp_axis.axhline(y=273, linestyle=":", color='b', label="Freezing point")
+
+	Temp_axis.set_ylabel("Temperature (k)")
+	Alb_axis.set_ylabel("Albedo")
+	Alb_axis.set_xlabel("Year")
+	Temp_axis.legend()
+
+	plt.show()
 
 # ---------------------------------------------------------------- #
 # 				Figure: Projected Co2 Emissions	 							
 # ---------------------------------------------------------------- #
 def plot_ProjectedCo2():
-	Plot_Name = "projected_co2"
 	figure, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False)
 
 	obs_times, obs_co2 = [], []
-	for t in Climate_CO2_Concentrations:
-		emissions = Climate_CO2_Concentrations[t]
+	for t in Historic_Co2:
+		emissions = Historic_Co2[t]
 		obs_co2.append(emissions)
 		obs_times.append(t)
 
@@ -186,6 +176,27 @@ def plot_ProjectedCo2():
 	plt.show()
 
 # ---------------------------------------------------------------- #
+# 		  Figure: Global Average Temperature Projection	 							
+# ---------------------------------------------------------------- #
+def plot_ProjectedGAT():
+	figure, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False)
+
+	Sim_End = 2035
+	A1FI_sim = SimClimate(A1FI_Pathway, Sim_End)
+	B1_sim = SimClimate(B1_Pathway, Sim_End)
+
+	A1FI_gats = [calc_GlobalAverageTemperature(A1FI_sim.lats, x) for x in A1FI_sim.tdists]
+	B1_gats = [calc_GlobalAverageTemperature(B1_sim.lats, x) for x in B1_sim.tdists]
+
+	axis.plot(A1FI_sim.times, A1FI_gats, "r-", label="A1FI")
+	axis.plot(B1_sim.times, B1_gats, "g-", label="B1")
+
+	axis.set_xlabel("Year")
+	axis.set_ylabel("Temperature (k)")
+	plt.legend()
+	plt.show()
+
+# ---------------------------------------------------------------- #
 # 						Main Code Path	 							
 # ---------------------------------------------------------------- #
 # plot_GATCO2()
@@ -193,4 +204,5 @@ def plot_ProjectedCo2():
 # plot_AlbedoModel()
 # plot_IceModel()
 # plot_AntarcticaCorrection()
-plot_ProjectedCo2()
+# plot_ProjectedCo2()
+# plot_ProjectedGAT()

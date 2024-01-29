@@ -3,12 +3,33 @@
 # ---------------------------------------------------------------- #
 from dataclasses import dataclass
 from data import Earth_Geography
-from data import Climate_Temperatures
-from data import Climate_CO2_Concentrations
+from data import Historic_Temperatures
 from alive_progress import alive_bar
 from scipy.optimize import minimize
 from scipy.optimize import Bounds
 import numpy as np
+
+# ---------------------------------------------------------------- #
+# 						Simulation Parameters 							
+# ---------------------------------------------------------------- #
+
+Latitude_Step = 10 	# [degrees]
+Time_Step = 8600 	# [s]
+Starting_Year = list(Historic_Temperatures)[0] # [wallclock]
+HistoricCo2_Domain = (1958,2024)
+Antarctica_Altitude = 2500			# [m]
+Orbital_Obliquity = -0.40911 		# [rads]
+Orbital_Period = 3.1558e7 			# [s]
+Orbital_SemiMajorAxis = 149.6e9 	# [m]
+Orbital_Eccentricity = 0.01671
+Earth_Radius = 6371e3				# [m]
+Sun_Luminosity = 3.846e26 			# [W]
+C_Transitioning_Ice = 5.31e7 		# [J/K]
+C_Land = 1.11e7 					# [J/K]
+C_Ocean = 2.201e8 					# [J/K]
+Diffusivity = 0.5394				# [???]
+Prehistoric_Co2 = 290 				# [ppm]
+Co2_Norm = 428						# [ppm]
 
 # ---------------------------------------------------------------- #
 # 						Misc' Functions 							
@@ -20,11 +41,15 @@ def seconds_to_years(x): 	return x / (86400 * 365)
 def to_kelvin(x): 			return x + 273.15
 def to_celsius(x): 			return x - 273.15
 def years_to_seconds(x):	return x * 365 * 86400
+def to_wallclock(t):		return Starting_Year + seconds_to_years(t)
+def from_wallclock(t):		return years_to_seconds(t - Starting_Year)
+def GtC_to_ppm(x):			return x / 2.08
 
-def calc_HistoricPeriod():
-	First_Year = list(Climate_Temperatures)[0] 
-	Last_Year = list(Climate_Temperatures)[-1]
-	return years_to_seconds(Last_Year - First_Year)
+@dataclass
+class Sim_Pack:
+	lats: list
+	times: list
+	tdists: list
 
 def Is_AntarcticLatitudeBand(lat: float):
 	return lat >= -np.radians(90) and lat <= -np.radians(70)
@@ -34,6 +59,36 @@ def Correct_SeaLevelTemperature(T: float, altitude_gain: float):
 	Lapse_Rate = 6.5 # degrees celsius lost, per 1km above sea-level.
 	Corrected_Temperature = to_celsius(T) - Lapse_Rate * (altitude_gain / 1000)
 	return to_kelvin(Corrected_Temperature)
+
+def calc_AntarcticAlbedo(sim: Sim_Pack):
+	Avg_Albedos = []
+
+	for X in sim.tdists:
+		Antarctic_Temps = []
+		for idx,l in enumerate(sim.lats):
+			if(Is_AntarcticLatitudeBand(l)):
+				Antarctic_Temps.append(X[idx])
+
+		albedos = [calculate_Albedo(T) for T in Antarctic_Temps]
+		Avg_Albedo = np.mean(albedos)
+
+		Avg_Albedos.append(Avg_Albedo)
+
+	return Avg_Albedos
+
+def calc_AntarcticAverageTemperature(sim: Sim_Pack):
+	Temperature_Averages = []
+
+	for X in sim.tdists:
+		Antarctic_Temps = []
+		
+		for idx,l in enumerate(sim.lats):
+			if(Is_AntarcticLatitudeBand(l)):
+				Antarctic_Temps.append(X[idx])
+
+		Temperature_Averages.append(np.mean(Antarctic_Temps))
+
+	return Temperature_Averages
 
 def calc_GlobalAverageTemperature(lat_grid: list, temps: list):
 	# Computes the global average temperature by weighting
@@ -70,7 +125,7 @@ def calc_ComparisonMetric(lat_grid: list, times: list, temp_frames: list):
 
 		Similarity_Metric = 0.0
 		for k in range(len(Sampled_Times)):
-			Historical_Temp = to_kelvin(Climate_Temperatures[Sampled_Times[k]])
+			Historical_Temp = to_kelvin(Historic_Temperatures[Sampled_Times[k]])
 			Global_Average_Temp = calc_GlobalAverageTemperature(lat_grid, Sampled_Temps[k])
 			Similarity_Metric += (Global_Average_Temp - Historical_Temp)**2
 
@@ -89,27 +144,10 @@ def find_OptimalCoolingFunction():
 	result = minimize(Objective_Func, x0=[0,1], bounds=Bounds([-np.inf, 0.0], [np.inf, np.inf]))
 	print(result)
 
-# ---------------------------------------------------------------- #
-# 						Simulation Parameters 							
-# ---------------------------------------------------------------- #
-
-Latitude_Step = 10 	# [degrees]
-Time_Step = days_to_seconds(1)
-
-Starting_Year = list(Climate_Temperatures)[0]
-Antarctica_Altitude = 2500			# [m]
-Orbital_Obliquity = -0.40911 		# [rads]
-Orbital_Period = 3.1558e7 			# [s]
-Orbital_SemiMajorAxis = 149.6e9 	# [m]
-Orbital_Eccentricity = 0.01671
-Earth_Radius = 6371e3				# [m]
-Sun_Luminosity = 3.846e26 			# [W]
-C_Transitioning_Ice = 5.31e7 		# [J/K]
-C_Land = 1.11e7 					# [J/K]
-C_Ocean = 2.201e8 					# [J/K]
-Diffusivity = 0.5394				# [???]
-Co2_Exp = 0.05114966426233368
-Ret_Factor = 0.6786585695589182
+def interp_HistoricCo2(t):
+	Timestamp = to_wallclock(t)
+	assert(Timestamp >= 1958 and Timestamp <= 2024) # valid range of interpolation to dataset
+	return 1.31647498e-02*np.power(Timestamp,2) - 5.07940891e+01*Timestamp + 4.92987770e+04
 
 # ---------------------------------------------------------------- #
 # 					Diurnal Solar Radiation (S) 							
@@ -196,21 +234,35 @@ def calculate_Albedo(T: float):
 # ---------------------------------------------------------------- #
 # 						IR Cooling Function (I) 							
 # ---------------------------------------------------------------- #
-def calculate_IRCooling(Co2_Exp: float, Retention_Factor: float, T: float, t: float):
-	# If a CO2 concentration exists in the historical record, for
-	# the period that we're in, then use that; otherwise, default
-	# to the last historical value that was recorded.
-	LastDataYear = list(Climate_CO2_Concentrations)[-1]
-	CO2_Concentration = Climate_CO2_Concentrations[LastDataYear]
-	Current_Period = int(Starting_Year + seconds_to_years(t))
+def calculate_IRCooling(T: float, t: float, emission_pathway: callable):
+	Alpha, Beta = 0.6786585695589182, 0.05114966426233368 # picked for model to match climate record
+	Present_Co2 = None
 
-	if Current_Period in Climate_CO2_Concentrations:
-		CO2_Concentration = Climate_CO2_Concentrations[Current_Period]
+	Timestamp = to_wallclock(t)
+	if(Timestamp < HistoricCo2_Domain[0]):
+		Present_Co2 = Prehistoric_Co2
+	elif(Timestamp >= HistoricCo2_Domain[0] and Timestamp <= HistoricCo2_Domain[1]):
+		Present_Co2 = interp_HistoricCo2(t)
+	elif(Timestamp >= HistoricCo2_Domain[1]):
+		Present_Co2 = emission_pathway(t)
 
-	Band_Emission = 5.67e-8 * (T**4)
-	Atmospheric_Retension = ((T / 273)**3) * (CO2_Concentration/Climate_CO2_Concentrations[LastDataYear])**Co2_Exp
+	Atmospheric_Absorption = Alpha * np.power((T/273),3) * np.power(Present_Co2 / Co2_Norm, Beta)
+	Dissipated_Radiation = (5.67e-8 * np.power(T,4)) / (1 + Atmospheric_Absorption)
 
-	return Band_Emission / (1 + Retention_Factor*Atmospheric_Retension)
+	return Dissipated_Radiation
+
+# ---------------------------------------------------------------- #
+# 						IPCC Emission Pathways 							
+# ---------------------------------------------------------------- #
+def A1FI_Pathway(t):
+	Timestamp = to_wallclock(t)
+	Co2_Emissions = -3.39e-03*np.power(Timestamp,2) + 14.2*Timestamp - 14790 
+	return GtC_to_ppm(Co2_Emissions)
+
+def B1_Pathway(t):
+	Timestamp = to_wallclock(t)
+	Co2_Emissions = -1.54*np.power(Timestamp,2) + 6.24*Timestamp - 6.32e+03
+	return GtC_to_ppm(Co2_Emissions)
 
 # ---------------------------------------------------------------- #
 # 						Heat Capacity (C) 							
@@ -254,20 +306,6 @@ def calc_AverageHeatCapacity(lat: float, T: float):
 	return Average_HeatCapacity
 
 # ---------------------------------------------------------------- #
-# 						IPCC Emission Pathways 							
-# ---------------------------------------------------------------- #
-def A1FI_Pathway(t):
-	a,b,c = -3.39453205e-03, 1.41847016e+01, -1.47897304e+04
-	Co2Emissions = a*(t**2) + b*t + c # Units: Gigatonnes of Carbon
-	return Co2Emissions / 2.08 # Convert to ppm
-
-def B1_Pathway(t):
-	a,b,c = -1.53615801e-03, 6.23548075e+00, -6.31645919e+03
-	Co2Emissions = a*(t**2) + b*t + c # Units: Gigatonnes of Carbon
-	return Co2Emissions / 2.08 # Convert to ppm
-
-
-# ---------------------------------------------------------------- #
 # 							1D-EBM PDE 							
 # ---------------------------------------------------------------- #
 def calc_Temp_sROC1(lats: float, temps: float, k: int):
@@ -299,74 +337,56 @@ def calc_Temp_sROC2(lats: float, temps: float, k: int):
 	else:
 		return (temps[k+1] - 2*temps[k] + temps[k-1]) / (lats[k+1]-lat)**2
 
-def calc_Temp_tROC(lats: list, temps: list, Co2_Exp: float, Retention_Factor: float, band_index: int, t: float):
+def calc_Temp_tROC(lats: list, temps: list, band_index: int, t: float, emission_pathway: callable, enable_AltCorr: bool):
 	lat = lats[band_index]
 	Band_Temp = temps[band_index]
+
+	if(enable_AltCorr and Is_AntarcticLatitudeBand(lat)):
+		Band_Temp = Correct_SeaLevelTemperature(Band_Temp, 2500)
 
 	Temp_sROC1 = calc_Temp_sROC1(lats, temps, band_index)
 	Temp_sROC2 = calc_Temp_sROC2(lats, temps, band_index)
 
-	Albedo = calculate_Albedo(Band_Temp)
-	Radiation_In = calc_AverageRadiation(lat, t)
+	IR_Cooling = calculate_IRCooling(Band_Temp, t, emission_pathway)
 	Heat_Capacity = calc_AverageHeatCapacity(lat, Band_Temp)
-	IR_Cooling = calculate_IRCooling(Co2_Exp, Retention_Factor, Band_Temp, t)
+	Radiation_In = calc_AverageRadiation(lat, t)
+	Albedo = calculate_Albedo(Band_Temp)
 
 	Temp_tROC = (Radiation_In * (1 - Albedo) + Diffusivity * \
 		(Temp_sROC2 - np.tan(lat) * Temp_sROC1) - IR_Cooling) / Heat_Capacity
 
 	return Temp_tROC
 
-@dataclass
-class Sim_Pack:
-	lats: list
-	times: list
-	tdists: list
-
-def SimClimate(sim_duration: float, altitude_correction: bool = True):
-	# ---------------------------------------------------
-	# Simulates the climate, starting at the specified year,
-	# for the specified number of years given by 'sim_duration';
-	# returns each time-point, relative to starting years, along
-	# with the temperature profile for each of these times.
-	# ---------------------------------------------------
-
-	Lat_Grid = []
-	for Lat_Coord in np.arange(-90, 90 + Latitude_Step, Latitude_Step):
-		Lat_Grid.append(np.radians(Lat_Coord))
+def SimClimate(emission_pathway: callable, End_Year: float, enable_AltCorr: bool = True):
+	Simulation_Length = years_to_seconds(End_Year - Starting_Year)
+	Lat_Grid = [np.radians(l) for l in np.arange(-90, 90 + Latitude_Step, Latitude_Step)]
 
 	# Retrieve the historical global average temperature for
 	# the specified starting year of the simulation.
-	assert (Starting_Year in Climate_Temperatures), "Starting year of simulation not present in historical record."
-	Starting_Temperature = to_kelvin(Climate_Temperatures[Starting_Year])
+	assert (Starting_Year in Historic_Temperatures), \
+		"Starting year of simulation not present in historical record."
+	Starting_Temperature = to_kelvin(Historic_Temperatures[Starting_Year])
 
 	Temperature_Sets = [[Starting_Temperature] * len(Lat_Grid)]
 	Time_Points = [0] # [Days]
 
 	# Metrics for the progress bar.
-	Total_Iterations = sim_duration / Time_Step
+	Total_Iterations = Simulation_Length / Time_Step
 	Num_Iterations_Done = 0
 
 	with alive_bar(title="Climate Simulation", manual=True) as bar:
 		# ---------------------------------------------------- 
-		while(Time_Points[-1] < sim_duration):
+		while(Time_Points[-1] < Simulation_Length):
 			Curr_TemperatureProfile = Temperature_Sets[-1]
 			Time = Time_Points[-1]
 
 			# ----- 
 			New_TemperatureProfile = []
 			for k in range(len(Lat_Grid)):
-				Temp_tROC =	calc_Temp_tROC(Lat_Grid, Curr_TemperatureProfile, Co2_Exp, Ret_Factor,  k, Time)
-
-				Band_Temp = Curr_TemperatureProfile[k]
-				New_BandTemperature = Band_Temp + Temp_tROC * Time_Step
-				assert (New_BandTemperature >= 0.0), "Unphysical band temperature."
-
-				# Correct sea-level temperature for Antarctica, so we get the
-				# correct temperature at the surface of the continent. 
-				if Is_AntarcticLatitudeBand(Lat_Grid[k]) and altitude_correction:
-					Band_Temp = Correct_SeaLevelTemperature(Band_Temp, Antarctica_Altitude)
-
+				Temp_tROC =	calc_Temp_tROC(Lat_Grid, Curr_TemperatureProfile, k, Time, emission_pathway, enable_AltCorr)
+				New_BandTemperature = Curr_TemperatureProfile[k] + Temp_tROC * Time_Step
 				New_TemperatureProfile.append(New_BandTemperature)
+				assert (New_BandTemperature >= 0.0), "Unphysical band temperature."
 			# ----- 
 
 			Time += Time_Step
@@ -379,9 +399,5 @@ def SimClimate(sim_duration: float, altitude_correction: bool = True):
 			bar(Sim_Status)
 		# ---------------------------------------------------- 
 
-		# Remap time points in simultation to real world time,
-		# which is relative to the starting year.
-		for k in range(len(Time_Points)):
-			Time_Points[k] = Starting_Year + seconds_to_years(Time_Points[k])
-
-	return Sim_Pack(Lat_Grid, Time_Points, Temperature_Sets)
+	Times = [to_wallclock(t) for t in Time_Points]
+	return Sim_Pack(Lat_Grid, Times, Temperature_Sets)
