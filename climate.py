@@ -90,32 +90,26 @@ def calc_AntarcticAverageTemperature(sim: Sim_Pack):
 
 	return Temperature_Averages
 
-def calc_GlobalAverageTemperature(lat_grid: list, temps: list):
-	# Computes the global average temperature by weighting
-	# the band temperatures by their areas, thus accounting for
-	# the influence the size of the band has on the resulting
-	# global average temperature.
+# @todo: double check the logic of the bands works here!
+def calc_SphericalAverage(sim: Sim_Pack, domain: tuple, func: callable):
+	C = 2*np.pi*(Earth_Radius**2.0)
+	idx0 = sim.lats.index(np.radians(domain[0]))
+	idx1 = sim.lats.index(np.radians(domain[1]))
+	Band_Areas = [C*np.absolute(np.cos(sim.lats[k])-np.cos(sim.lats[k+1])) \
+		for k in range(idx0, idx1)]
 
-	Weighted_Temps = []
-	Weights = []
-	Integral_Prefactor = 2*np.pi*(Earth_Radius**2.0)
+	Variable_Averages = []
+	for X in sim.tdists:
+		Variable_List = []
+		for k in range(idx0, idx1):
+			Variable_List.append(func(X[k]))
 
-	for k in range(len(lat_grid)):
-		# No latitude band after north pole, so we bail
-		# as no band to compute area of here.
-		if(k == len(lat_grid)-1):
-			break
+		a = np.average(Variable_List, weights=Band_Areas)
+		Variable_Averages.append(a)
 
-		Latitude = lat_grid[k]
+	return Variable_Averages
 
-		Cosine_Delta = np.cos(lat_grid[k]) - np.cos(lat_grid[k+1])
-		Band_Area = Integral_Prefactor * abs(Cosine_Delta)	
-		
-		Weighted_Temps.append(temps[k] * Band_Area)
-		Weights.append(Band_Area)
-
-	return np.sum(Weighted_Temps) / np.sum(Weights)
-
+# @todo: needs to be rewritten to work with new calc_SphericalAverage function. 
 def calc_ComparisonMetric(lat_grid: list, times: list, temp_frames: list):
 		# Computes the sum of the residuls between the 
 		# historical record and the model.

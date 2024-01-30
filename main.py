@@ -7,7 +7,7 @@ from climate import years_to_seconds
 from climate import days_to_seconds
 from climate import A1FI_Pathway
 from climate import B1_Pathway
-from climate import calc_GlobalAverageTemperature
+from climate import calc_SphericalAverage
 from climate import calc_AntarcticAverageTemperature
 from climate import calc_AntarcticAlbedo
 from data import Historic_Temperatures
