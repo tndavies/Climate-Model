@@ -7,18 +7,20 @@ from climate import years_to_seconds
 from climate import days_to_seconds
 from climate import A1FI_Pathway
 from climate import B1_Pathway
+from climate import to_kelvin
 from climate import calc_SphericalAverage
-from climate import calc_AntarcticAverageTemperature
-from climate import calc_AntarcticAlbedo
+from climate import Starting_Year
 from data import Historic_Temperatures
+from data import Historic_Co2Emissions
+from climate import get_HistoricEmissions
 
 import scienceplots
 
 # plt.style.use('science')
 
-Default_LineStyles = cycler(linestyle=['-', '--', '-.', ':']) \
-					+ cycler(color=['k','r','g','b'])
-plt.rc('axes', prop_cycle=Default_LineStyles)
+# Default_LineStyles = cycler(linestyle=['-', '--', '-.', ':']) \
+# 					+ cycler(color=['k','r','g','b'])
+# plt.rc('axes', prop_cycle=Default_LineStyles)
 
 Fig_Size = (8.8, 5.5)
 
@@ -176,23 +178,39 @@ def plot_ProjectedCo2():
 	plt.show()
 
 # ---------------------------------------------------------------- #
-# 		  Figure: Global Average Temperature Projection	 							
+# 		  			Figure: Model Calibration	 							
 # ---------------------------------------------------------------- #
-def plot_ProjectedGAT():
+def plot_ModelCalibration():
 	figure, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False)
+	
+	Sim_Length = years_to_seconds(list(Historic_Temperatures)[-1] - Starting_Year)
+	Sim = SimClimate(Sim_Length, None)
 
-	Sim_End = 2035
-	A1FI_sim = SimClimate(A1FI_Pathway, Sim_End)
-	B1_sim = SimClimate(B1_Pathway, Sim_End)
+	Gats = calc_SphericalAverage(Sim, lambda Tband: Tband, (-90,90))
+	axis.plot(np.array(Sim.times)[::365], np.array(Gats)[::365], "r-", linewidth=1.2, label="Climate Model")
 
-	A1FI_gats = [calc_GlobalAverageTemperature(A1FI_sim.lats, x) for x in A1FI_sim.tdists]
-	B1_gats = [calc_GlobalAverageTemperature(B1_sim.lats, x) for x in B1_sim.tdists]
-
-	axis.plot(A1FI_sim.times, A1FI_gats, "r-", label="A1FI")
-	axis.plot(B1_sim.times, B1_gats, "g-", label="B1")
+	HR_Times = [t for t in Historic_Temperatures]
+	HR_Gats = [to_kelvin(Historic_Temperatures[t]) for t in HR_Times]
+	axis.plot(HR_Times, HR_Gats, "k-", linewidth=2.5, alpha=0.75, label="Historic Record")
 
 	axis.set_xlabel("Year")
 	axis.set_ylabel("Temperature (k)")
+
+	plt.legend()
+	plt.show()
+
+# ---------------------------------------------------------------- #
+# 		  			Figure: Co2 Data Interpolation	 							
+# ---------------------------------------------------------------- #
+def plot_InterpolatedCo2Data():
+	times, co2 = [],[]
+	for t in Historic_Co2Emissions:
+		times.append(t)
+		co2.append(Historic_Co2Emissions[t])
+
+	plt.figure()
+	plt.plot(times,co2, "k--", label="co2 observations")
+	plt.plot(times, get_HistoricEmissions(np.array(times)), "r-", label="Interpolation")
 	plt.legend()
 	plt.show()
 
@@ -205,4 +223,5 @@ def plot_ProjectedGAT():
 # plot_IceModel()
 # plot_AntarcticaCorrection()
 # plot_ProjectedCo2()
-# plot_ProjectedGAT()
+plot_ModelCalibration()
+
