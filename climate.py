@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 from data import Earth_Geography
 from data import Historic_Temperatures
-from data import Historic_Co2Emissions
+from data import Historic_Co2
 from alive_progress import alive_bar
 from scipy.optimize import minimize
 from scipy.optimize import Bounds
@@ -34,6 +34,7 @@ C_Ocean = 2.201e8 					# [J/K]
 Diffusivity = 0.5394				# [???]
 Prehistoric_Co2 = 280 				# [ppm]
 Co2_Norm = 428						# [ppm]
+Antarctic_Bounds = (-90, -70)
 
 # ---------------------------------------------------------------- #
 # 						Misc' Functions 							
@@ -150,7 +151,7 @@ def calc_AverageRadiation(lat: float, t: float):
 # ---------------------------------------------------------------- #
 # 						Albedo Function (A) 							
 # ---------------------------------------------------------------- #
-def calculate_Albedo(T: float):
+def calc_Albedo(T: float):
 	# Computes the amount of incoming solar radiation 
 	# that is reflected back by the Earth's surface;
 	# accounting for the presence of snow/ice at
@@ -161,21 +162,19 @@ def calculate_Albedo(T: float):
 # 						IPCC Emission Pathways 							
 # ---------------------------------------------------------------- #
 def A1FI_Pathway(t):
-	Timestamp = to_wallclock(t)
-	Co2_Emissions = -3.39e-03*np.power(Timestamp,2) + 14.2*Timestamp - 14790 
+	Co2_Emissions = -3.39e-03*np.power(t,2) + 14.2*t - 14790 
 	return GtC_to_ppm(Co2_Emissions)
 
 def B1_Pathway(t):
-	Timestamp = to_wallclock(t)
-	Co2_Emissions = -1.54*np.power(Timestamp,2) + 6.24*Timestamp - 6.32e+03
+	Co2_Emissions = -1.54*np.power(t,2) + 6.24*t - 6.32e+03
 	return GtC_to_ppm(Co2_Emissions)
 
 # ---------------------------------------------------------------- #
 # 						Observed Co2 Emissions 							
 # ---------------------------------------------------------------- #
 def Interpolate_Co2Data():
-	Times = [t for t in Historic_Co2Emissions]
-	Concentrations = [Historic_Co2Emissions[t] for t in Times]
+	Times = [t for t in Historic_Co2]
+	Concentrations = [Historic_Co2[t] for t in Times]
 	return Polynomial.fit(Times, Concentrations, 25)
 
 get_HistoricEmissions = Interpolate_Co2Data()
@@ -289,7 +288,7 @@ def calc_Temp_tROC(lats: list, temps: list, band_index: int, t: float, emission_
 	lat = lats[band_index]
 	Band_Temp = temps[band_index]
 
-	if(enable_AltCorr and (lat >= -1.571 and lat <= -1.222)):
+	if(enable_AltCorr and (lat >= np.radians(Antarctic_Bounds[0]) and lat <= np.radians(Antarctic_Bounds[1]))):
 		Band_Temp = Correct_SeaLevelTemperature(Band_Temp, Antarctica_Altitude)
 
 	Temp_sROC1 = calc_Temp_sROC1(lats, temps, band_index)
@@ -298,7 +297,7 @@ def calc_Temp_tROC(lats: list, temps: list, band_index: int, t: float, emission_
 	IR_Cooling = calculate_IRCooling(Band_Temp, t, emission_pathway)
 	Heat_Capacity = calc_AverageHeatCapacity(lat, Band_Temp)
 	Radiation_In = calc_AverageRadiation(lat, t)
-	Albedo = calculate_Albedo(Band_Temp)
+	Albedo = calc_Albedo(Band_Temp)
 
 	Temp_tROC = (Radiation_In * (1 - Albedo) + Diffusivity * \
 		(Temp_sROC2 - np.tan(lat) * Temp_sROC1) - IR_Cooling) / Heat_Capacity
