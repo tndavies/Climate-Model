@@ -9,6 +9,11 @@ from alive_progress import alive_bar
 from scipy.optimize import minimize
 from scipy.optimize import Bounds
 
+from data import RCP85_Data
+from data import RCP6_Data
+from data import RCP45_Data
+from data import RCP26_Data
+
 from numpy.polynomial import Polynomial
 import numpy as np
 
@@ -18,9 +23,7 @@ import numpy as np
 Latitude_Step = 10 	# [degrees]
 Time_Step = 86400 	# [s]
 Starting_Year = list(Historic_Temperatures)[0] # [wallclock]
-
 HistoricCo2_Domain = (1750,2024) # Wallclock times over which the co2 interpolation is valid for.
-
 Antarctica_Altitude = 2500			# [m]
 Orbital_Obliquity = -0.40911 		# [rads]
 Orbital_Period = 3.1558e7 			# [s]
@@ -48,7 +51,13 @@ def to_celsius(x): 			return x - 273.15
 def years_to_seconds(x):	return x * 365 * 86400
 def to_wallclock(t):		return Starting_Year + seconds_to_years(t)
 def from_wallclock(t):		return years_to_seconds(t - Starting_Year)
-def GtC_to_ppm(x):			return x / 2.08
+
+def Interpolate_Co2(Co2_dataset: dict, degree: int):
+	print("hello")
+	Times = [t for t in Co2_dataset]
+	Concentrations = [Co2_dataset[t] for t in Times]
+	Interpolation = Polynomial.fit(Times, Concentrations, degree)
+	return Interpolation
 
 @dataclass
 class Sim_Pack:
@@ -75,6 +84,16 @@ def calc_SphericalAverage(sim: Sim_Pack, T_map: callable, domain: tuple):
 		Variable_Averages.append(Avg)
 
 	return Variable_Averages
+
+# ---------------------------------------------------------------- #
+# 						RCP Co2 Pathways 							
+# ---------------------------------------------------------------- #
+RCP_85 = Interpolate_Co2(RCP85_Data, 2)
+RCP_6 = Interpolate_Co2(RCP6_Data, 2)
+RCP_45 = Interpolate_Co2(RCP45_Data, 2)
+RCP_26 = Interpolate_Co2(RCP26_Data, 4)
+RCP_26 = Interpolate_Co2(RCP26_Data, 4)
+RCP_0 = Interpolate_Co2(Historic_Co2, 10)
 
 # ---------------------------------------------------------------- #
 # 					Diurnal Solar Radiation (S) 							
@@ -159,41 +178,21 @@ def calc_Albedo(T: float):
 	return 0.525 - 0.245 * np.tanh(0.2*T-53.6)
 
 # ---------------------------------------------------------------- #
-# 						IPCC Emission Pathways 							
-# ---------------------------------------------------------------- #
-def A1FI_Pathway(t):
-	Co2_Emissions = -3.39e-03*np.power(t,2) + 14.2*t - 14790 
-	return GtC_to_ppm(Co2_Emissions)
-
-def B1_Pathway(t):
-	Co2_Emissions = -1.54*np.power(t,2) + 6.24*t - 6.32e+03
-	return GtC_to_ppm(Co2_Emissions)
-
-# ---------------------------------------------------------------- #
-# 						Observed Co2 Emissions 							
-# ---------------------------------------------------------------- #
-def Interpolate_Co2Data():
-	Times = [t for t in Historic_Co2]
-	Concentrations = [Historic_Co2[t] for t in Times]
-	return Polynomial.fit(Times, Concentrations, 25)
-
-get_HistoricEmissions = Interpolate_Co2Data()
-
-# ---------------------------------------------------------------- #
 # 						IR Cooling Function (I) 							
 # ---------------------------------------------------------------- #
 def calculate_IRCooling(T: float, t: float, emission_pathway: callable):
-	Beta, Alpha = 0.044391304498661736, 0.6750606062846835
+	# Beta, Alpha = 0.044391304498661736, 0.6750606062846835 # old
+	Beta, Alpha = 0.05219667519817232, 0.6956267888496618
 
 	Present_Co2 = None
 	Timestamp = to_wallclock(t)
 
 	if(Timestamp >= HistoricCo2_Domain[0] and Timestamp <= HistoricCo2_Domain[1]):
-		Present_Co2 = get_HistoricEmissions(Timestamp)
+		Present_Co2 = RCP_0(np.array(Timestamp))
 	elif(Timestamp >= HistoricCo2_Domain[1]):
-		Present_Co2 = emission_pathway(t)
+		Present_Co2 = emission_pathway(np.array(Timestamp))
 	else:
-		assert "Wallclock time is before Co2 record starts."
+		assert "No suitable Co2 concentration available"
 
 	Atmospheric_Absorption = Alpha * np.power((T/273),3) * np.power(Present_Co2 / Co2_Norm, Beta)
 	Dissipated_Radiation = (5.67e-8 * np.power(T,4)) / (1 + Atmospheric_Absorption)
@@ -249,11 +248,6 @@ def Correct_SeaLevelTemperature(T: float, altitude_gain: float):
 	Lapse_Rate = 6.5 # degrees celsius lost, per 1km above sea-level.
 	Corrected_Temperature = to_celsius(T) - Lapse_Rate * (altitude_gain / 1000)
 	return to_kelvin(Corrected_Temperature)
-
-def Interpolate_HistoricCo2(t):
-	Timestamp = to_wallclock(t)
-	assert(Timestamp >= 1958 and Timestamp <= 2024) # valid range of interpolation to dataset
-	return 1.31647498e-02*np.power(Timestamp,2) - 5.07940891e+01*Timestamp + 4.92987770e+04
 
 def calc_Temp_sROC1(lats: list, temps: list, k: int):
 	lat = lats[k]  # latitude we want the derivative evaluated at.

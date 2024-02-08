@@ -1,31 +1,34 @@
 import matplotlib.pyplot as plt
-from numpy.polynomial import Polynomial
-from cycler import cycler
 import numpy as np
 import scienceplots
+
+from climate import RCP_85
+from climate import RCP_6
+from climate import RCP_45
+from climate import RCP_26
+from climate import RCP_0
 
 from climate import SimClimate
 from climate import years_to_seconds
 from climate import days_to_seconds
-from climate import A1FI_Pathway
-from climate import B1_Pathway
 from climate import to_kelvin
 from climate import calc_SphericalAverage
 from climate import Starting_Year
-from climate import get_HistoricEmissions
 from climate import Antarctic_Bounds
 from climate import calc_Albedo
 
+from data import Serialise
 from data import Historic_Temperatures
 from data import Historic_Co2
-from data import A1FI_Projections
-from data import A1T_Projections
-from data import B1_Projections
+from data import RCP85_Data
+from data import RCP6_Data
+from data import RCP45_Data
+from data import RCP26_Data
 
 # ---------------------------------------------------------------- #
-# 				Figure: Historic Climate GAT/CO2 Data	 							
+# 				Figure: Climate Observational Data	 							
 # ---------------------------------------------------------------- #
-def GatCo2Data_Plot():
+def ClimateData_Plot():
 	figure, (co2, gat) = plt.subplots(nrows=2,ncols=1,sharex=True)
 
 	Times = [t for t in Historic_Temperatures]
@@ -34,15 +37,12 @@ def GatCo2Data_Plot():
 
 	Times = [t for t in Historic_Co2]
 	Concentrations = [Historic_Co2[t] for t in Times]
-	co2.plot(Times, Concentrations, "k--", label="Observational Data")
-	co2.plot(Times, get_HistoricEmissions(np.array(Times)), "r-", label="Interpolation")
+	co2.plot(Times, Concentrations, "k-")
 
 	gat.set_ylabel("Temperature (k)")
 	co2.set_ylabel("Concentration (ppm)")
 	gat.set_xlabel("Year")
 	
-	co2.legend()
-
 	plt.show()
 
 # ---------------------------------------------------------------- #
@@ -71,25 +71,28 @@ def ModelCalibration_Plot():
 # ---------------------------------------------------------------- #
 # 				Figure: Projected Co2 Emissions	 							
 # ---------------------------------------------------------------- #
-# @todo: this plot needs some TLC.
 def ProjectedEmissions_Plot():
 	figure, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False)
 
 	Observation_Times = [t for t in Historic_Co2]
 	Observed_Concentrations = [Historic_Co2[t] for t in Observation_Times]
-	axis.plot(Observation_Times, Observed_Concentrations, "k-", label="Observational Data")
+	axis.plot(Observation_Times, Observed_Concentrations, "--", color="black", label="Observational Data")
 
-	Times = [t for t in A1FI_Projections]
-	Concentrations = [A1FI_Projections[t] for t in Times]
-	axis.plot(Times, Concentrations, "r--", label="A1FI Pathway")
+	Times = [t for t in RCP85_Data]
+	Concentrations = [RCP85_Data[t] for t in Times]
+	axis.plot(Times, Concentrations, color="firebrick", label="RCP 8.5")
 
-	Times = [t for t in A1T_Projections]
-	Concentrations = [A1T_Projections[t] for t in Times]
-	axis.plot(Times, Concentrations, "y--", label="A1T Pathway")
+	Times = [t for t in RCP6_Data]
+	Concentrations = [RCP6_Data[t] for t in Times]
+	axis.plot(Times, Concentrations, color="darkorange", label="RCP 6")
 
-	Times = [t for t in B1_Projections]
-	Concentrations = [B1_Projections[t] for t in Times]
-	axis.plot(Times, Concentrations, "g--", label="B1 Pathway")
+	Times = [t for t in RCP45_Data]
+	Concentrations = [RCP45_Data[t] for t in Times]
+	axis.plot(Times, Concentrations, color="royalblue", label="RCP 4.5")
+
+	Times = [t for t in RCP26_Data]
+	Concentrations = [RCP26_Data[t] for t in Times]
+	axis.plot(Times, Concentrations, color="seagreen", label="RCP 2.6")
 
 	axis.set_xlabel("Year")
 	axis.set_ylabel("Concentration (ppm)")
@@ -101,7 +104,6 @@ def ProjectedEmissions_Plot():
 # ---------------------------------------------------------------- #
 # 			Figure: Antarctica Altitude Correction 	 							
 # ---------------------------------------------------------------- #
-
 def AntarcticaCorrection_Plot():
 	figure, (Temp_axis, Alb_axis) = plt.subplots(nrows=2,ncols=1,sharex=True)
 
@@ -117,7 +119,7 @@ def AntarcticaCorrection_Plot():
 	cTemps = calc_SphericalAverage(cSim, lambda T: T, Antarctic_Bounds)
 	cAlbedos = calc_SphericalAverage(cSim, calc_Albedo, Antarctic_Bounds)
 
-	n = 365
+	n = int(365 / 2)
 
 	lbl = "Altitude Correction: Off"
 	Sampled_Times = np.array(uTimes)[::n]
@@ -144,61 +146,67 @@ def AntarcticaCorrection_Plot():
 	plt.show()
 
 # ---------------------------------------------------------------- #
-# 					Figure: Solar Intensity 	 							
+# 					Figure: Co2 Pathway Fitting 	 							
 # ---------------------------------------------------------------- #
-def plot_SolarIntensities():
-	figure, (axis) = plt.subplots(nrows=1,ncols=1,figsize=Fig_Size,sharex=False)
+def Co2PathwayFitting_Plot():
+	fig = plt.figure()
+	fig.supxlabel("Year")
+	fig.supylabel("Concentration (ppm)")
 
-	# ------------------------------------------
-	Times = np.linspace(0, 365, 500)
-	Latitudes = [90,0,-90]
-	for l in Latitudes:
-		LatBand_Intensities = []
-		for t in Times:
-			I = climate.calc_AverageRadiation(np.radians(l), days_to_seconds(t))
-			LatBand_Intensities.append(I)
+	a = fig.add_subplot(321)
+	b = fig.add_subplot(322)
+	c = fig.add_subplot(323)
+	d = fig.add_subplot(324)
+	l = fig.add_subplot(313)
 
-		Plot_Label = r"${lat}^\circ$".format(lat=str(l))
-		axis.plot(Times, LatBand_Intensities, label=Plot_Label)
-	# ------------------------------------------
+	def plot(Co2_Data: dict, Co2_Poly: Polynomial, Name: str, axis):
+		Times, Concentrations = Serialise(Co2_Data)
+		Sample_Times = np.linspace(Times[0], Times[-1], 100)
+		Interpolated_Concentrations = Co2_Poly(Sample_Times)
+		
+		axis.plot(Times, Concentrations, ".", color="black", alpha=0.75, label=Name)
+		axis.plot(Sample_Times, Interpolated_Concentrations, "--", color="red")
+		axis.legend()
 
-	axis.set_xlabel("Day")
-	axis.set_ylabel("Intensity " + r'(W$m^{-2}$)')
-	
+	plot(RCP85_Data, RCP_85, "RCP 8.5", a)
+	plot(RCP6_Data, RCP_6, "RCP 6", b)
+	plot(RCP45_Data, RCP_45, "RCP 4.5", c)
+	plot(RCP26_Data, RCP_26, "RCP 2.6", d)
+	plot(Historic_Co2, RCP_0, "Historic Co2", l)
+
 	plt.show()
 
-# ---------------------------------------------------------------- #
-# 					Figure: Albedo Model 	 							
-# ---------------------------------------------------------------- #
-def plot_AlbedoModel():
-	figure, (axis) = plt.subplots(nrows=1,ncols=1,figsize=Fig_Size,sharex=False)
 
-	# ------------------------------------------
-	temps = np.linspace(250,300, 100)
-	As = climate.calculate_Albedo(temps)
-	axis.plot(temps, As)
-	# ------------------------------------------
-
-	axis.set_xlabel("Temperature (k)")
-	axis.set_ylabel("Albedo")
-	
-	plt.show()
-	
 # ---------------------------------------------------------------- #
-# 					Figure: Ice Model 	 							
+# 					Figure: Temperature Forecasts 	 							
 # ---------------------------------------------------------------- #
-def plot_IceModel():
-	figure, (axis) = plt.subplots(nrows=1,ncols=1,figsize=Fig_Size,sharex=False)
+def TemperatureForecasts_Plot():
+	figure, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False)
 
-	# ------------------------------------------
-	temps = np.linspace(200,300,500)
-	ice_frac = climate.calc_IceFraction(temps)
-	axis.plot(temps, ice_frac)
-	# ------------------------------------------
+	Sim_Length = years_to_seconds(2100 - Starting_Year)
+	Sim_RCP85 = SimClimate(Sim_Length, RCP_85)
+	Sim_RCP6 = SimClimate(Sim_Length, RCP_6)
+	Sim_RCP45 = SimClimate(Sim_Length, RCP_45)
+	Sim_RCP26 = SimClimate(Sim_Length, RCP_26)
 
-	axis.set_xlabel("Temperature (k)")
-	axis.set_ylabel("Ice Fraction")
-	
+	def plot(sim, Name: str, col: str):
+		gats = calc_SphericalAverage(sim, lambda x: x, (-90,90))
+		Sample_Times = np.array(sim.times)[::365]
+		Sample_Gats = np.array(gats)[::365]
+		axis.plot(Sample_Times, Sample_Gats, label=Name, color=col)
+
+	plot(Sim_RCP85, "RCP 8.5", "firebrick")
+	plot(Sim_RCP6, "RCP 6", "darkorange")
+	plot(Sim_RCP45, "RCP 4.5", "royalblue")
+	plot(Sim_RCP26, "RCP 2.6", "seagreen")
+
+	Times, Gats = Serialise(Historic_Temperatures)
+	Gats_Kelvin = [to_kelvin(gat) for gat in Gats]
+	axis.plot(Times, Gats_Kelvin, "--", color="black")	
+
+	plt.xlabel("Year")
+	plt.ylabel("Temperature (k)")
+	plt.legend()
 	plt.show()
 
 # ---------------------------------------------------------------- #
@@ -206,7 +214,9 @@ def plot_IceModel():
 # ---------------------------------------------------------------- #
 # plt.style.use('science')
 
-# GatCo2Data_Plot()
-# ModelCalibration_Plot()
+# ClimateData_Plot()
+ModelCalibration_Plot()
 # ProjectedEmissions_Plot()
-AntarcticaCorrection_Plot()
+# AntarcticaCorrection_Plot()
+# Co2PathwayFitting_Plot()
+# TemperatureForecasts_Plot()
