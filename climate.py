@@ -1,8 +1,13 @@
 # ---------------------------------------------------------------- #
 # 							Imports 							
 # ---------------------------------------------------------------- #
-import numpy as np
+from alive_progress import config_handler
 from numpy.polynomial import Polynomial
+from alive_progress import alive_bar
+from scipy.optimize import minimize
+from scipy.optimize import Bounds
+from dataclasses import dataclass
+import numpy as np
 
 from data import Historic_Temperatures
 from data import Earth_Geography
@@ -12,35 +17,11 @@ from data import RCP6_Data
 from data import RCP45_Data
 from data import RCP26_Data
 
-from scipy.optimize import minimize
-from scipy.optimize import Bounds
-
-from alive_progress import alive_bar
-from alive_progress import config_handler
-from dataclasses import dataclass
-
 config_handler.set_global(bar="classic2", spinner="classic") # Sets the style of the progress bar.
 
 # ---------------------------------------------------------------- #
 # 							Definitions 							
 # ---------------------------------------------------------------- #
-@dataclass
-class Sim_Specification:
-    Duration: float
-    RCP: callable = None
-    Altitude_Correction: bool = True
-    Alpha: float = 0.6956267888496618
-    Beta: float = 0.05219667519817232
-    Time_Step: float = 86400
-    Lat_Step: float = 10.0
-    
-@dataclass
-class Sim_Result:
-	times: list[float] 	# Array of timestamps.
-	lats: list[float]	# Simulation latitude grid.
-	tps: list[float]	# Temperature profile for each timestamp.
- 
-Starting_Year = 			list(Historic_Temperatures)[0]
 Antarctica_Altitude = 		2500		# [m]
 Orbital_Obliquity = 		-0.40911 	# [rads]
 Orbital_Period = 			3.1558e7 	# [s]
@@ -53,6 +34,26 @@ C_Land = 					1.11e7 		# [J/K]
 C_Ocean = 					2.201e8 	# [J/K]
 Diffusivity =				0.5394		# [???]
 Co2_Norm = 					428			# [ppm]
+Antarctic_Bounds = 			(-90,-70)
+Best_Alpha = 				0.6956267888496618
+Best_Beta = 				0.05219667519817232
+
+@dataclass
+class Sim_Specification:
+    Duration: float
+    RCP: callable = None
+    Altitude_Correction: bool = True
+    Initial_Year: float = list(Historic_Temperatures)[0]
+    Alpha: float = Best_Alpha
+    Beta: float = Best_Beta
+    Time_Step: float = 86400
+    Lat_Step: float = 10.0
+    
+@dataclass
+class Sim_Result:
+	times: list[float] 	# Array of timestamps.
+	lats: list[float]	# Simulation latitude grid.
+	tps: list[float]	# Temperature profile for each timestamp.
 
 # ---------------------------------------------------------------- #
 # 						Misc. Functions	 							
@@ -77,46 +78,10 @@ def Average(sim: Sim_Result, temp_map: callable, domain: tuple):
 
 	return Variable_Averages
 
-def seconds_to_years(x): 	return x / (86400 * 365)
-def to_kelvin(x): 			return x + 273.15
+def to_timestamp(initial_year: int, t: float):
+    return initial_year + (t / 31536000)
+
 def years_to_seconds(x):	return x * 365 * 86400
-def to_wallclock(t):		return Starting_Year + seconds_to_years(t)
-
-# ---------------------------------------------------------------- #
-# 						Model Calibration 							
-# ---------------------------------------------------------------- #
-def Calibrate_Model():
-	def compare(sim: Sim_Result):
-		Gats = Average(sim, lambda x: x, (-90,90))
-		Sampled_Times = np.array(sim.times)[::365]
-		Sampled_Gats = np.array(Gats)[::365]
-
-		Similarity_Metric = 0.0
-		for k in range(len(Sampled_Times)):
-			Wallclock_Time, Gat = Sampled_Times[k], Sampled_Gats[k]
-			Observed_Gat = Historic_Temperatures[int(Wallclock_Time)]
-			Similarity_Metric += np.power((Gat - to_kelvin(Observed_Gat)),2.0)
-
-		return Similarity_Metric
-
-	def Objective_Func(params: list):
-		ClimateRecord_Length = list(Historic_Temperatures)[-1] - list(Historic_Temperatures)[0]
-		spec = Sim_Specification(years_to_seconds(ClimateRecord_Length), Alpha=params[0], Beta=params[1])
-		result  = Simulate_Climate(spec)
-		Likeness = compare(result)
-
-		Log_string = "Alpha={a}, Beta={b}, Likeness={l}".format(a=params[0],b=params[1],l=Likeness)
-		print(Log_string)
-  
-		return Likeness 
-
-	# NOTE: Co2 Exponent (alpha) is unbounded (-inf, inf), but 
-	# the retention factor (beta) must restricted to [0, inf).
-	Param_Bounds = Bounds([-np.inf, 0.0], [np.inf, np.inf])
-	Initial_Params = [0.0, 1.0]
-
-	result = minimize(Objective_Func, x0=Initial_Params, bounds=Param_Bounds) 
-	print(result)
 
 # ---------------------------------------------------------------- #
 # 						 Co2 Pathways 							
@@ -141,21 +106,18 @@ def calc_Declination(t: float):
 	# Using the declination equation for a generically shaped orbit,
 	# and applying to an elliptical orbit, we calculate the declination
 	# angle.
-
 	EarthSun_Angle = calc_EarthSunAngle(t)
 	Sine_Declination = np.sin(Orbital_Obliquity) * np.sin(EarthSun_Angle)
-
 	return np.arcsin(Sine_Declination)
 
 def calc_EarthSunAngle(t: float):
-	e = Orbital_Eccentricity
-
 	# We begin by computing the mean anomaly angle for the
 	# Earth-Sun orbit, at the desired time.
 	m = ((2 * np.pi) / Orbital_Period)*t
 
 	# The series approximation we use to calculate the angle between the two bodies
 	# is only valid for orbital eccentricies less than the Laplace limit (0.6627).
+	e = Orbital_Eccentricity
 	assert (e < 0.6627), "Orbital eccentricity is too large"
 
 	# Evaulate the first three terms in the series approximation for the true anomaly angle,
@@ -168,7 +130,6 @@ def calc_RadiationIntensity(t: float):
 	# Given the angle between the Sun and Earth (true anomaly angle), we compute
 	# the distence between the two bodies via the polar equation for an ellipse,
 	# and then compute how much of the sun's radition reaches that distance.
-
 	EarthSun_Angle = calc_EarthSunAngle(t)
 	EarthSun_Dist = Orbital_SemiMajorAxis * (1.0 - Orbital_Eccentricity**2.0) / (1.0 + Orbital_Eccentricity * np.cos(EarthSun_Angle))
 	Radiation_Intensity = Sun_Luminosity / (4 * np.pi * EarthSun_Dist**2.0)
@@ -179,7 +140,6 @@ def calc_AverageRadiation(lat: float, t: float):
 	# Computes the average solar radiation that hits Earth at a
 	# specified point in time, where the average is taken over
 	# a day.
-
 	q = calc_RadiationIntensity(t)
 	decl = calc_Declination(t)
 
@@ -217,8 +177,8 @@ def calc_Albedo(T: float):
 def RCP0_Valid(ts: float):
     return ts >= 1750 and ts <= 2024
 
-def calculate_IRCooling(rcp: callable, t: float, temp: float, alpha: float, beta: float):
-	ts = to_wallclock(t)
+def calculate_IRCooling(initial_year: int, t: float, rcp: callable, alpha: float, beta: float, temp: float):
+	ts = to_timestamp(initial_year, t)
 	Pathway = RCP0 if RCP0_Valid(ts) else rcp
 	Co2 = Pathway(np.array(ts))
 	Atmospheric_Absorption = alpha * np.power((temp/273),3) * np.power(Co2 / Co2_Norm, beta)
@@ -262,13 +222,13 @@ def calc_AverageHeatCapacity(lat: float, T: float):
 # 							1D-EBM PDE 							
 # ---------------------------------------------------------------- #
 def Within_Antarctic(lat: float):
-    return lat >= np.radians(-90) and lat <= np.radians(-70)
+    return lat >= np.radians(Antarctic_Bounds[0]) and lat <= np.radians(Antarctic_Bounds[1])
 
-def Correct_SeaLevelTemperature(T: float, altitude_gain: float):
+def ApplyLapseRate(T: float, altitude_gain: float):
 	# @tidy: do we need to convert to celsius first here?
 	Lapse_Rate = 6.5 # degrees celsius lost, per 1km above sea-level.
 	Corrected_Temperature = (T-273.15) - Lapse_Rate * (altitude_gain / 1000)
-	return to_kelvin(Corrected_Temperature)
+	return (Corrected_Temperature + 273.15)
 
 def calc_Temp_sROC1(lats: list, temps: list, k: int):
 	lat = lats[k]  # latitude we want the derivative evaluated at.
@@ -298,12 +258,12 @@ def calc_Temp_tROC(spec: Sim_Specification, lat_grid: list, tp: list, lat_idx: i
 	lat, temp = lat_grid[lat_idx], tp[lat_idx]
 
 	if spec.Altitude_Correction and Within_Antarctic(lat):
-		temp = Correct_SeaLevelTemperature(temp, Antarctica_Altitude)
+		temp = ApplyLapseRate(temp, Antarctica_Altitude)
 
 	sROC1 = calc_Temp_sROC1(lat_grid, tp, lat_idx)
 	sROC2 = calc_Temp_sROC2(lat_grid, tp, lat_idx)
 
-	IR_Cooling = calculate_IRCooling(spec.RCP, t, temp, spec.Alpha, spec.Beta)
+	IR_Cooling = calculate_IRCooling(spec.Initial_Year, t, spec.RCP, spec.Alpha, spec.Beta, temp)
 	Heat_Capacity = calc_AverageHeatCapacity(lat, temp)
 	Radiation_In = calc_AverageRadiation(lat, t)
 	Albedo = calc_Albedo(temp)
@@ -321,7 +281,7 @@ def Simulate_Climate(spec: Sim_Specification) -> Sim_Result:
 	Time_Grid = np.arange(spec.Time_Step, spec.Duration + spec.Time_Step, spec.Time_Step)
 	Lat_Grid = [np.radians(l) for l in np.arange(-90, 90 + spec.Lat_Step, spec.Lat_Step)]
 	Temperature_Profiles = [TP0]
-	Time_Stamps = [Starting_Year]
+	Time_Stamps = [spec.Initial_Year]
 
 	def evolve_lat_temp(lat_idx: int, prior_tp: list[float], t: float):
 		tROC =	calc_Temp_tROC(spec, Lat_Grid, prior_tp, lat_idx, t)
@@ -335,8 +295,44 @@ def Simulate_Climate(spec: Sim_Specification) -> Sim_Result:
 			TP_Prior = Temperature_Profiles[-1]
 			TP_Now = [evolve_lat_temp(k,TP_Prior,t) for k in range(len(Lat_Grid))]
 			Temperature_Profiles.append(TP_Now)
-			Time_Stamps.append(to_wallclock(t))
+			Time_Stamps.append(to_timestamp(spec.Initial_Year, t))
 			progress_bar()
 		# ----------------------------------------------------------------------------
 
 	return Sim_Result(Time_Stamps, Lat_Grid, Temperature_Profiles)
+
+# ---------------------------------------------------------------- #
+# 						Model Calibration 							
+# ---------------------------------------------------------------- #
+def Calibrate_Model():
+	def compare(sim: Sim_Result):
+		Gats = Average(sim, lambda x: x, (-90,90))
+		Sampled_Times = np.array(sim.times)[::365]
+		Sampled_Gats = np.array(Gats)[::365]
+
+		Similarity_Metric = 0.0
+		for k in range(len(Sampled_Times)):
+			Wallclock_Time, Gat = Sampled_Times[k], Sampled_Gats[k]
+			Observed_Gat = Historic_Temperatures[int(Wallclock_Time)]
+			Similarity_Metric += np.power((Gat - Observed_Gat),2.0)
+
+		return Similarity_Metric
+
+	def Objective_Func(params: list):
+		ClimateRecord_Length = list(Historic_Temperatures)[-1] - list(Historic_Temperatures)[0]
+		spec = Sim_Specification(years_to_seconds(ClimateRecord_Length), Alpha=params[0], Beta=params[1])
+		result  = Simulate_Climate(spec)
+		Likeness = compare(result)
+
+		Log_string = "Alpha={a}, Beta={b}, Likeness={l}".format(a=params[0],b=params[1],l=Likeness)
+		print(Log_string)
+  
+		return Likeness 
+
+	# Note: Co2 Exponent (alpha) is unbounded (-inf, inf), but 
+	# the retention factor (beta) must restricted to [0, inf).
+	Param_Bounds = Bounds([-np.inf, 0.0], [np.inf, np.inf])
+	Initial_Params = [1.0, 0.0]
+
+	result = minimize(Objective_Func, x0=Initial_Params, bounds=Param_Bounds) 
+	print(result)
