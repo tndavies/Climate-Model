@@ -16,6 +16,7 @@ from data import RCP85_Data
 from data import RCP6_Data
 from data import RCP45_Data
 from data import RCP26_Data
+from data import Serialise
 
 config_handler.set_global(bar="classic2", spinner="classic") # Sets the style of the progress bar.
 
@@ -26,7 +27,7 @@ Antarctica_Altitude = 		2500		# [m]
 Orbital_Obliquity = 		-0.40911 	# [rads]
 Orbital_Period = 			3.1558e7 	# [s]
 Orbital_SemiMajorAxis = 	149.6e9 	# [m]
-Orbital_Eccentricity = 		0.01671		# [--]
+Orbital_Eccentricity = 		0.01671		# [-]
 Earth_Radius = 				6371e3		# [m]
 Sun_Luminosity = 			3.846e26 	# [W]
 C_Transitioning_Ice = 		5.31e7 		# [J/K]
@@ -34,20 +35,23 @@ C_Land = 					1.11e7 		# [J/K]
 C_Ocean = 					2.201e8 	# [J/K]
 Diffusivity =				0.5394		# [???]
 Co2_Norm = 					428			# [ppm]
-Antarctic_Bounds = 			(-90,-70)
-Best_Alpha = 				0.6956267888496618
-Best_Beta = 				0.05219667519817232
+Prerecord_Co2Level =		300			# [ppm]
+Antarctic_Bounds = 			(-90,-70)	# [degrees]
+Best_Alpha = 				0.6955093969474789
+Best_Beta = 				0.05221459427741913
+Stability_Duration = 		30 			# [years]
 
 @dataclass
 class Sim_Specification:
     Duration: float
     RCP: callable = None
     Altitude_Correction: bool = True
-    Initial_Year: float = list(Historic_Temperatures)[0]
+    Initial_Year: float = list(Historic_Temperatures)[0] - Stability_Duration
     Alpha: float = Best_Alpha
     Beta: float = Best_Beta
     Time_Step: float = 86400
     Lat_Step: float = 10.0
+    Initial_Temperature: float = Historic_Temperatures[list(Historic_Temperatures)[0]]
     
 @dataclass
 class Sim_Result:
@@ -87,8 +91,7 @@ def years_to_seconds(x):	return x * 365 * 86400
 # 						 Co2 Pathways 							
 # ---------------------------------------------------------------- #
 def Interpolate_Co2(co2_data: dict, poly_degree: int):
-	Times = [t for t in co2_data]
-	Concentrations = [co2_data[t] for t in Times]
+	Times, Concentrations = Serialise(co2_data)
 	Interpolation = Polynomial.fit(Times, Concentrations, poly_degree)
 	return Interpolation
 
@@ -174,13 +177,17 @@ def calc_Albedo(T: float):
 # ---------------------------------------------------------------- #
 # 						IR Cooling Function (I) 							
 # ---------------------------------------------------------------- #
-def RCP0_Valid(ts: float):
-    return ts >= 1750 and ts <= 2024
-
 def calculate_IRCooling(initial_year: int, t: float, rcp: callable, alpha: float, beta: float, temp: float):
 	ts = to_timestamp(initial_year, t)
-	Pathway = RCP0 if RCP0_Valid(ts) else rcp
-	Co2 = Pathway(np.array(ts))
+
+	Co2 = None
+	if ts < list(Historic_Temperatures)[0]:
+		Co2 = Prerecord_Co2Level
+	elif ts >= list(Historic_Temperatures)[0] and ts <= list(Historic_Temperatures)[-1]:
+		Co2 = RCP0(np.array(ts))
+	elif ts > list(Historic_Temperatures)[-1]:
+		Co2 = rcp(np.array(ts))
+
 	Atmospheric_Absorption = alpha * np.power((temp/273),3) * np.power(Co2 / Co2_Norm, beta)
 	Dissipated_Radiation = (5.67e-8 * np.power(temp,4)) / (1 + Atmospheric_Absorption)
 
@@ -205,7 +212,6 @@ def calc_AverageHeatCapacity(lat: float, T: float):
 	# Computes the heat capacity of a latitude band,
 	# by averaging over all contributions from land,
 	# ice and sea. (Vladilo, A.1)
-
 	C_Ice = C_Transitioning_Ice if(T >= 263 and T <= 273) else C_Land
 
 	Ocean_Frac = Get_OceanFraction(lat)
@@ -273,14 +279,9 @@ def calc_Temp_tROC(spec: Sim_Specification, lat_grid: list, tp: list, lat_idx: i
 	return pde_lhs / Heat_Capacity
 	
 def Simulate_Climate(spec: Sim_Specification) -> Sim_Result:
-	TP0 = [257.6998508414262, 264.9543549453431, 272.51691024275937, 279.97651769971645, 287.1904984428507, \
-        293.97990467239975, 300.0816382919714, 305.24183498137745, 308.93608590353955, 310.8974781491791, 	\
-        311.1008572230777, 309.74417807206487, 306.96745570596556, 303.3651857255646, 298.60321111458694, 	\
-        292.6694413730734, 285.78408600338435, 279.6811404088141, 273.52767915695705]
- 
 	Time_Grid = np.arange(spec.Time_Step, spec.Duration + spec.Time_Step, spec.Time_Step)
 	Lat_Grid = [np.radians(l) for l in np.arange(-90, 90 + spec.Lat_Step, spec.Lat_Step)]
-	Temperature_Profiles = [TP0]
+	Temperature_Profiles = [[spec.Initial_Temperature]*len(Lat_Grid)]
 	Time_Stamps = [spec.Initial_Year]
 
 	def evolve_lat_temp(lat_idx: int, prior_tp: list[float], t: float):
@@ -307,14 +308,17 @@ def Simulate_Climate(spec: Sim_Specification) -> Sim_Result:
 def Calibrate_Model():
 	def compare(sim: Sim_Result):
 		Gats = Average(sim, lambda x: x, (-90,90))
-		Sampled_Times = np.array(sim.times)[::365]
+		Sampled_Timestamps = np.array(sim.times)[::365]
 		Sampled_Gats = np.array(Gats)[::365]
 
 		Similarity_Metric = 0.0
-		for k in range(len(Sampled_Times)):
-			Wallclock_Time, Gat = Sampled_Times[k], Sampled_Gats[k]
-			Observed_Gat = Historic_Temperatures[int(Wallclock_Time)]
-			Similarity_Metric += np.power((Gat - Observed_Gat),2.0)
+		for k in range(len(Sampled_Timestamps)):
+			Timestamp, Gat = Sampled_Timestamps[k], Sampled_Gats[k]
+			Lookup_Year = int(round(Timestamp))
+
+			if Lookup_Year in Historic_Temperatures:
+				Observed_Gat = Historic_Temperatures[Lookup_Year]
+				Similarity_Metric += np.power((Gat - Observed_Gat),2.0)
 
 		return Similarity_Metric
 
@@ -322,17 +326,17 @@ def Calibrate_Model():
 		ClimateRecord_Length = list(Historic_Temperatures)[-1] - list(Historic_Temperatures)[0]
 		spec = Sim_Specification(years_to_seconds(ClimateRecord_Length), Alpha=params[0], Beta=params[1])
 		result  = Simulate_Climate(spec)
-		Likeness = compare(result)
+		likeness = compare(result)
 
-		Log_string = "Alpha={a}, Beta={b}, Likeness={l}".format(a=params[0],b=params[1],l=Likeness)
+		Log_string = "Alpha={a}, Beta={b}, Likeness={l}".format(a=params[0],b=params[1],l=likeness)
 		print(Log_string)
   
-		return Likeness 
+		return likeness
 
 	# Note: Co2 Exponent (alpha) is unbounded (-inf, inf), but 
 	# the retention factor (beta) must restricted to [0, inf).
 	Param_Bounds = Bounds([-np.inf, 0.0], [np.inf, np.inf])
-	Initial_Params = [1.0, 0.0]
+	Initial_Params = [Best_Alpha, Best_Beta]
 
 	result = minimize(Objective_Func, x0=Initial_Params, bounds=Param_Bounds) 
 	print(result)

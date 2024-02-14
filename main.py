@@ -1,8 +1,10 @@
 from climate import calculate_IRCooling
+from climate import Stability_Duration
 from climate import Sim_Specification
 from climate import Simulate_Climate
 from climate import Antarctic_Bounds
 from climate import years_to_seconds
+from climate import Calibrate_Model
 from climate import calc_Albedo
 from climate import Best_Alpha
 from climate import Best_Beta
@@ -57,7 +59,7 @@ def ClimateData_Plot():
 def ModelCalibration_Plot():
 	figure, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False)
 	
-	Duration = years_to_seconds(Get_ClimateRecordLength())
+	Duration = years_to_seconds(Stability_Duration + Get_ClimateRecordLength())
 	Sim = Simulate_Climate(Sim_Specification(Duration))
 
 	Gats = Average(Sim, lambda x: x, (-90,90))
@@ -248,15 +250,13 @@ def ModelStability_Plot():
 # ---------------------------------------------------------------- #
 # plt.style.use('science')
 
+# Calibrate_Model()
+
 # Thesis Ready:
 # ClimateData_Plot()
-# ModelCalibration_Plot()
+ModelCalibration_Plot()
 # ProjectedEmissions_Plot()
 # AntarcticaCorrection_Plot()
 # Co2PathwayInterpolation_Plot()
-TemperatureForecasts_Plot()
-
-# In Progress:
-# CoolingModel_Plot()
+# TemperatureForecasts_Plot()
 # ModelStability_Plot()
-
