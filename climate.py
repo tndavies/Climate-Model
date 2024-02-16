@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from data import Historic_Temperatures
+from data import Equilibrium_Config
 from data import Earth_Geography
 from data import Historic_Co2
 from data import RCP85_Data
@@ -45,8 +46,7 @@ Stability_Duration = 		20 			# [years]
 class Sim_Specification:
     Duration: float
     # Optional (below)
-    Initial_Temperature: float = Historic_Temperatures[list(Historic_Temperatures)[0]]
-    Initial_Year: float = list(Historic_Temperatures)[0] - Stability_Duration
+    Initial_Year: float = list(Historic_Temperatures)[0]
     Altitude_Correction: bool = True
     Alpha: float = Best_Alpha
     Time_Step: float = 86400
@@ -86,9 +86,6 @@ def Average(sim: Sim_Result, temp_map: callable, domain: tuple):
 
 def to_timestamp(initial_year: int, t: float):
     return initial_year + (t / 31536000)
-
-def years_to_seconds(x):
-    return x * 31536000
 
 # ---------------------------------------------------------------- #
 # 						 Co2 Pathways 							
@@ -283,10 +280,11 @@ def calc_Temp_tROC(spec: Sim_Specification, lat_grid: list, tp: list, lat_idx: i
 	
 def Simulate_Climate(spec: Sim_Specification) -> Sim_Result:
 	assert spec.Duration >= 0, "Invalid Duration"
+	Duration = spec.Duration * 31536000 # convert from years -> seconds.
     
-	Time_Grid = np.arange(spec.Time_Step, spec.Duration + spec.Time_Step, spec.Time_Step)
+	Time_Grid = np.arange(spec.Time_Step, Duration + spec.Time_Step, spec.Time_Step)
 	Lat_Grid = [np.radians(l) for l in np.arange(-90, 90 + spec.Lat_Step, spec.Lat_Step)]
-	Temperature_Profiles = [[spec.Initial_Temperature]*len(Lat_Grid)]
+	Temperature_Profiles = [Equilibrium_Config]
 	Time_Stamps = [spec.Initial_Year]
 
 	def evolve_lat_temp(lat_idx: int, prior_tp: list[float], t: float):
@@ -310,7 +308,7 @@ def Simulate_Climate(spec: Sim_Specification) -> Sim_Result:
 # ---------------------------------------------------------------- #
 # 						Model Calibration 							
 # ---------------------------------------------------------------- #
-def Calibrate_Model():
+def Optimize_Model():
 	def compare(sim: Sim_Result):
 		Gats = Average(sim, lambda x: x, (-90,90))
 		Sampled_Timestamps = np.array(sim.times)[::365]
@@ -329,7 +327,7 @@ def Calibrate_Model():
 
 	def Objective_Func(params: list):
 		ClimateRecord_Length = list(Historic_Temperatures)[-1] - list(Historic_Temperatures)[0]
-		spec = Sim_Specification(years_to_seconds(ClimateRecord_Length), Alpha=params[0], Beta=params[1])
+		spec = Sim_Specification(ClimateRecord_Length, Alpha=params[0], Beta=params[1])
 		result  = Simulate_Climate(spec)
 		likeness = compare(result)
 
@@ -345,3 +343,17 @@ def Calibrate_Model():
 
 	result = minimize(Objective_Func, x0=Initial_Params, bounds=Param_Bounds) 
 	print(result)
+ 
+def Find_Equilibrium():
+	Spec = Sim_Specification(Stability_Duration, Initial_Year=list(Historic_Temperatures)[0]-Stability_Duration)
+	Sim = Simulate_Climate(Spec)
+	Gats = Average(Sim, lambda x: x, (-90,90))
+	
+	_, Observed_Gats = Serialise(Historic_Temperatures)
+	Obs_Str = "First Gat in record: {x}".format(x=Observed_Gats[0])
+	Gat_Str = "Equilibrium Gat: {x}".format(x=Gats[-1])
+
+	print(Obs_Str)
+	print(Gat_Str)
+	print("Equilibrium Configuration:")
+	print(Sim.tps[-1])

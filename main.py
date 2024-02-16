@@ -46,10 +46,9 @@ def Fig_ClimateData():
 def Fig_ModelCalibration():
 	fig, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False,figsize=(6.4, 4))
 	
-	Duration = years_to_seconds(Stability_Duration + Get_ClimateRecordLength())
-	Sim = Simulate_Climate(Sim_Specification(Duration))
-
+	Sim = Simulate_Climate(Sim_Specification(Get_ClimateRecordLength()))
 	Gats = Average(Sim, lambda x: x, (-90,90))
+ 
 	axis.plot(np.array(Sim.times)[::365], np.array(Gats)[::365], "r-", label="Climate Model")
 
 	Observation_Times, Observed_Gats = Serialise(Historic_Temperatures)
@@ -96,8 +95,8 @@ def Fig_Antarctica():
 
 	# -----------------------------------------------------------------------------------------
 	def plot(correction_on: bool):
-		Duration = years_to_seconds(Get_ClimateRecordLength())
-		Sim = Simulate_Climate(Sim_Specification(Duration, Altitude_Correction=correction_on))
+		Spec = Sim_Specification(Get_ClimateRecordLength(), Altitude_Correction=correction_on)
+		Sim = Simulate_Climate(Spec)
 
 		Times = np.array(Sim.times)
 		Temps = Average(Sim, lambda x: x, Antarctic_Bounds)
@@ -109,7 +108,7 @@ def Fig_Antarctica():
 		Sampled_Temps = np.array(Temps)[::N]
 		Sampled_Albedos = np.array(Albedos)[::N]
   
-		LineWidth = 1.0
+		LineWidth = 0.5
 		LineStyle = "r-" if correction_on else "k-"
 		Label = "Altitude Correction: On" if correction_on else "Altitude Correction: Off"
 		
@@ -119,7 +118,7 @@ def Fig_Antarctica():
 
 	plot(True)
 	plot(False)
-	Temp_axis.axhline(y=273, linestyle="-.", color='b', linewidth=1.5, alpha=0.5, label="Freezing point")
+	Temp_axis.axhline(y=273, linestyle="-.", color='b', linewidth=1.2, alpha=0.75, label="Freezing point")
 
 	Temp_axis.set_ylabel("Temperature (k)")
 	Alb_axis.set_ylabel("Albedo")
@@ -166,26 +165,20 @@ def Fig_Co2Interpolations():
 # ---------------------------------------------------------------- #
 def Fig_Forecasts():
 	# Simulations
-	# -------------------------------------------------------------------
 	Target_Year = 2100
-	Duration = years_to_seconds(Target_Year - (list(Historic_Temperatures)[0] - Stability_Duration))
-
+	Duration = Target_Year - list(Historic_Temperatures)[0]
 	Sim_RCP85 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP85))
 	Sim_RCP6 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP6))
 	Sim_RCP45 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP45))
 	Sim_RCP26 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP26))
-	# -------------------------------------------------------------------
 
 	# Colour Map
-	# -------------------------------------------------------------------
 	RCP85_Col = "firebrick"
 	RCP6_Col = "darkorange"
 	RCP45_Col = "royalblue"
 	RCP26_Col = "seagreen"
-	# -------------------------------------------------------------------
 
 	# Plot global temperature distributions
-	# -------------------------------------------------------------------
 	fig, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False,figsize=(6.4, 4))
   
 	def plot_dist(sim: Sim_Result, name: str, col: str):
@@ -201,10 +194,8 @@ def Fig_Forecasts():
 	axis.legend()
 
 	Save_Figure(fig, "tdist_forecast")
- 	# -------------------------------------------------------------------
 
 	# Plot global average temperatures
-	# -------------------------------------------------------------------
 	fig, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False,figsize=(6.4, 4))
 	
 	def plot_gats(sim: Sim_Result, name: str, col: str):
@@ -234,10 +225,10 @@ def Fig_Forecasts():
 # ---------------------------------------------------------------- #
 plt.style.use('science')
 
-# Thesis Ready:
-# Fig_ClimateData()
-# Fig_ModelCalibration()
-# Fig_Co2Projections()
-# Fig_Antarctica()
-# Fig_Co2Interpolations()
+# [Thesis Ready]:
+Fig_ClimateData()
+Fig_ModelCalibration()
+Fig_Co2Projections()
+Fig_Antarctica()
+Fig_Co2Interpolations()
 Fig_Forecasts()
