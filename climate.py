@@ -39,25 +39,27 @@ Prerecord_Co2Level =		300			# [ppm]
 Antarctic_Bounds = 			(-90,-70)	# [degrees]
 Best_Alpha = 				0.6955093969474789
 Best_Beta = 				0.05221459427741913
-Stability_Duration = 		30 			# [years]
+Stability_Duration = 		20 			# [years]
 
 @dataclass
 class Sim_Specification:
     Duration: float
-    RCP: callable = None
-    Altitude_Correction: bool = True
-    Initial_Year: float = list(Historic_Temperatures)[0] - Stability_Duration
-    Alpha: float = Best_Alpha
-    Beta: float = Best_Beta
-    Time_Step: float = 86400
-    Lat_Step: float = 10.0
+    # Optional (below)
     Initial_Temperature: float = Historic_Temperatures[list(Historic_Temperatures)[0]]
+    Initial_Year: float = list(Historic_Temperatures)[0] - Stability_Duration
+    Altitude_Correction: bool = True
+    Alpha: float = Best_Alpha
+    Time_Step: float = 86400
+    Beta: float = Best_Beta
+    Lat_Step: float = 10.0
+    RCP: callable = None
     
 @dataclass
 class Sim_Result:
-	times: list[float] 	# Array of timestamps.
-	lats: list[float]	# Simulation latitude grid.
-	tps: list[float]	# Temperature profile for each timestamp.
+	spec: Sim_Specification		# Copy of the Sim Spec used.
+	times: list[float] 			# Array of timestamps.
+	lats: list[float]			# Simulation latitude grid.
+	tps: list[float]			# Temperature profile for each timestamp.
 
 # ---------------------------------------------------------------- #
 # 						Misc. Functions	 							
@@ -85,7 +87,8 @@ def Average(sim: Sim_Result, temp_map: callable, domain: tuple):
 def to_timestamp(initial_year: int, t: float):
     return initial_year + (t / 31536000)
 
-def years_to_seconds(x):	return x * 365 * 86400
+def years_to_seconds(x):
+    return x * 31536000
 
 # ---------------------------------------------------------------- #
 # 						 Co2 Pathways 							
@@ -279,6 +282,8 @@ def calc_Temp_tROC(spec: Sim_Specification, lat_grid: list, tp: list, lat_idx: i
 	return pde_lhs / Heat_Capacity
 	
 def Simulate_Climate(spec: Sim_Specification) -> Sim_Result:
+	assert spec.Duration >= 0, "Invalid Duration"
+    
 	Time_Grid = np.arange(spec.Time_Step, spec.Duration + spec.Time_Step, spec.Time_Step)
 	Lat_Grid = [np.radians(l) for l in np.arange(-90, 90 + spec.Lat_Step, spec.Lat_Step)]
 	Temperature_Profiles = [[spec.Initial_Temperature]*len(Lat_Grid)]
@@ -300,7 +305,7 @@ def Simulate_Climate(spec: Sim_Specification) -> Sim_Result:
 			progress_bar()
 		# ----------------------------------------------------------------------------
 
-	return Sim_Result(Time_Stamps, Lat_Grid, Temperature_Profiles)
+	return Sim_Result(spec, Time_Stamps, Lat_Grid, Temperature_Profiles)
 
 # ---------------------------------------------------------------- #
 # 						Model Calibration 							
