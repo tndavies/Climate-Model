@@ -28,7 +28,7 @@ Antarctica_Altitude = 		2500		# [m]
 Orbital_Obliquity = 		-0.40911 	# [rads]
 Orbital_Period = 			3.1558e7 	# [s]
 Orbital_SemiMajorAxis = 	149.6e9 	# [m]
-Orbital_Eccentricity = 		0.01671		# [-]
+Orbital_Eccentricity = 		0.01671
 Earth_Radius = 				6371e3		# [m]
 Sun_Luminosity = 			3.846e26 	# [W]
 C_Transitioning_Ice = 		5.31e7 		# [J/K]
@@ -44,16 +44,16 @@ Stability_Duration = 		20 			# [years]
 
 @dataclass
 class Sim_Specification:
-    Duration: float
+    Duration: float	# [years]
     # Optional (below)
     Initial_Year: float = list(Historic_Temperatures)[0]
     Altitude_Correction: bool = True
     Alpha: float = Best_Alpha
     Time_Step: float = 86400
     Beta: float = Best_Beta
-    Lat_Step: float = 10.0
     RCP: callable = None
-    
+    Lat_Step: int = 10
+
 @dataclass
 class Sim_Result:
 	spec: Sim_Specification		# Copy of the Sim Spec used.
@@ -102,7 +102,7 @@ RCP26 = Interpolate_Co2(RCP26_Data, 4)
 RCP0 = Interpolate_Co2(Historic_Co2, 10)
 
 # ---------------------------------------------------------------- #
-# 					Diurnal Solar Radiation (S) 							
+# 					Diurnal Solar Radiation (S) 					
 # ---------------------------------------------------------------- #
 
 def calc_Declination(t: float):
@@ -179,7 +179,7 @@ def calc_Albedo(T: float):
 # ---------------------------------------------------------------- #
 def calculate_IRCooling(initial_year: int, t: float, rcp: callable, alpha: float, beta: float, temp: float):
 	ts = to_timestamp(initial_year, t)
-
+	
 	Co2 = None
 	if ts < list(Historic_Temperatures)[0]:
 		Co2 = Prerecord_Co2Level
@@ -284,6 +284,8 @@ def Simulate_Climate(spec: Sim_Specification) -> Sim_Result:
     
 	Time_Grid = np.arange(spec.Time_Step, Duration + spec.Time_Step, spec.Time_Step)
 	Lat_Grid = [np.radians(l) for l in np.arange(-90, 90 + spec.Lat_Step, spec.Lat_Step)]
+
+	assert len(Equilibrium_Config) == len(Lat_Grid), "Equilibrium-Config mismatched w/ latitude-grid size"
 	Temperature_Profiles = [Equilibrium_Config]
 	Time_Stamps = [spec.Initial_Year]
 

@@ -123,7 +123,7 @@ def Fig_Antarctica():
 	Temp_axis.set_ylabel("Temperature (k)")
 	Alb_axis.set_ylabel("Albedo")
 	Alb_axis.set_xlabel("Year")
-	Temp_axis.legend()
+	# Temp_axis.legend()
 
 	Save_Figure(fig, "antarctic")
 
@@ -163,37 +163,54 @@ def Fig_Co2Interpolations():
 # ---------------------------------------------------------------- #
 # 					Figure: Forecasts 	 							
 # ---------------------------------------------------------------- #
+# @think: Is this plotting the year 2099 average, or the year 2100 average? (temp dists plot)
+# @todo: double check our averging code is working correctly.
 def Fig_Forecasts():
 	# Simulations
 	Target_Year = 2100
 	Duration = Target_Year - list(Historic_Temperatures)[0]
 	Sim_RCP85 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP85))
-	Sim_RCP6 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP6))
+	# Sim_RCP6 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP6))
 	Sim_RCP45 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP45))
 	Sim_RCP26 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP26))
+ 
+	Sim_Context = Simulate_Climate(Sim_Specification(Get_ClimateRecordLength()))
 
 	# Colour Map
 	RCP85_Col = "firebrick"
 	RCP6_Col = "darkorange"
 	RCP45_Col = "royalblue"
 	RCP26_Col = "seagreen"
-
+	Context_Col = "black"
+ 
 	# Plot global temperature distributions
 	fig, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False,figsize=(6.4, 4))
   
-	def plot_dist(sim: Sim_Result, name: str, col: str):
-		axis.plot(sim.tps[-1], np.degrees(sim.lats), label=name, color=col)
+	def plot_dist(sim: Sim_Result, name: str, col: str, line_pattern: str = "-"):
+		Average_Temps = []
 
+		Steps_Per_Year = int(3.154e7 / sim.spec.Time_Step) + 1
+		Temp_Dists = [sim.tps[-k] for k in range(1,Steps_Per_Year + 1)]
+  
+		for k in range(len(sim.lats)):
+			buffer = [arr[k] for arr in Temp_Dists]
+			Average_Temps.append(np.mean(buffer))
+  
+		axis.plot(np.degrees(sim.lats), Average_Temps, label=name, color=col, linestyle=line_pattern, linewidth=0.8)
+
+	plot_dist(Sim_Context, "2023", Context_Col, line_pattern="--")
 	plot_dist(Sim_RCP85, "RCP 8.5", RCP85_Col)
-	plot_dist(Sim_RCP6, "RCP 6", RCP6_Col)
+	# plot_dist(Sim_RCP6, "RCP 6", RCP6_Col)
 	plot_dist(Sim_RCP45, "RCP 4.5", RCP45_Col)
 	plot_dist(Sim_RCP26, "RCP 2.6", RCP26_Col)
 
-	axis.set_xlabel("Temperature (k)")
-	axis.set_ylabel("Latitude")
+	axis.set_xlabel("Latitude")
+	axis.set_ylabel("Temperature (k)")
 	axis.legend()
 
 	Save_Figure(fig, "tdist_forecast")
+	
+ 	# ----------------------------------------------------------------
 
 	# Plot global average temperatures
 	fig, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False,figsize=(6.4, 4))
@@ -205,7 +222,7 @@ def Fig_Forecasts():
 		axis.plot(Sample_Times, Sample_Gats, label=name, color=col)
 
 	plot_gats(Sim_RCP85, "RCP 8.5", RCP85_Col)
-	plot_gats(Sim_RCP6, "RCP 6", RCP6_Col)
+	# plot_gats(Sim_RCP6, "RCP 6", RCP6_Col)
 	plot_gats(Sim_RCP45, "RCP 4.5", RCP45_Col)
 	plot_gats(Sim_RCP26, "RCP 2.6", RCP26_Col)
 
@@ -219,16 +236,15 @@ def Fig_Forecasts():
 	Save_Figure(fig, "gat_forecast")
 	# -------------------------------------------------------------------
 
-
 # ---------------------------------------------------------------- #
 # 						Main Code Path	 							
 # ---------------------------------------------------------------- #
-plt.style.use('science')
+# plt.style.use('science')
 
 # [Thesis Ready]:
-Fig_ClimateData()
-Fig_ModelCalibration()
-Fig_Co2Projections()
-Fig_Antarctica()
-Fig_Co2Interpolations()
+# Fig_ClimateData()
+# Fig_ModelCalibration()
+# Fig_Co2Projections()
+# Fig_Antarctica()
+# Fig_Co2Interpolations()
 Fig_Forecasts()
