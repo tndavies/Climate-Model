@@ -72,8 +72,8 @@ def Fig_Co2Projections():
 	Times, Concentrations = Serialise(RCP85_Data)
 	axis.plot(Times, Concentrations, color="firebrick", label="RCP 8.5")
 
-	Times, Concentrations = Serialise(RCP6_Data)
-	axis.plot(Times, Concentrations, color="darkorange", label="RCP 6")
+	# Times, Concentrations = Serialise(RCP6_Data)
+	# axis.plot(Times, Concentrations, color="darkorange", label="RCP 6")
 
 	Times, Concentrations = Serialise(RCP45_Data)
 	axis.plot(Times, Concentrations, color="royalblue", label="RCP 4.5")
@@ -166,80 +166,74 @@ def Fig_Co2Interpolations():
 # @think: Is this plotting the year 2099 average, or the year 2100 average? (temp dists plot)
 # @todo: double check our averging code is working correctly.
 def Fig_Forecasts():
+
 	# Simulations
 	Target_Year = 2100
 	Duration = Target_Year - list(Historic_Temperatures)[0]
 	Sim_RCP85 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP85))
-	# Sim_RCP6 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP6))
 	Sim_RCP45 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP45))
 	Sim_RCP26 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP26))
+	Sim_Context = Sim_RCP85
  
-	Sim_Context = Simulate_Climate(Sim_Specification(Get_ClimateRecordLength()))
-
-	# Colour Map
-	RCP85_Col = "firebrick"
-	RCP6_Col = "darkorange"
-	RCP45_Col = "royalblue"
-	RCP26_Col = "seagreen"
-	Context_Col = "black"
- 
-	# Plot global temperature distributions
-	fig, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False,figsize=(6.4, 4))
-  
-	def plot_dist(sim: Sim_Result, name: str, col: str, line_pattern: str = "-"):
-		Average_Temps = []
-
-		Steps_Per_Year = int(3.154e7 / sim.spec.Time_Step) + 1
-		Temp_Dists = [sim.tps[-k] for k in range(1,Steps_Per_Year + 1)]
-  
-		for k in range(len(sim.lats)):
-			buffer = [arr[k] for arr in Temp_Dists]
-			Average_Temps.append(np.mean(buffer))
-  
-		axis.plot(np.degrees(sim.lats), Average_Temps, label=name, color=col, linestyle=line_pattern, linewidth=0.8)
-
-	plot_dist(Sim_Context, "2023", Context_Col, line_pattern="--")
-	plot_dist(Sim_RCP85, "RCP 8.5", RCP85_Col)
-	# plot_dist(Sim_RCP6, "RCP 6", RCP6_Col)
-	plot_dist(Sim_RCP45, "RCP 4.5", RCP45_Col)
-	plot_dist(Sim_RCP26, "RCP 2.6", RCP26_Col)
-
-	axis.set_xlabel("Latitude")
-	axis.set_ylabel("Temperature (k)")
-	axis.legend()
-
-	Save_Figure(fig, "tdist_forecast")
-	
- 	# ----------------------------------------------------------------
-
 	# Plot global average temperatures
+  	# ----------------------------------------------------------------
 	fig, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False,figsize=(6.4, 4))
-	
-	def plot_gats(sim: Sim_Result, name: str, col: str):
-		gats = Average(sim, lambda x: x, (-90,90))
-		Sample_Times = np.array(sim.times)[::365]
-		Sample_Gats = np.array(gats)[::365]
-		axis.plot(Sample_Times, Sample_Gats, label=name, color=col)
 
-	plot_gats(Sim_RCP85, "RCP 8.5", RCP85_Col)
-	# plot_gats(Sim_RCP6, "RCP 6", RCP6_Col)
-	plot_gats(Sim_RCP45, "RCP 4.5", RCP45_Col)
-	plot_gats(Sim_RCP26, "RCP 2.6", RCP26_Col)
+	Time_Threshold = (list(Historic_Temperatures)[-1] - Sim_Context.spec.Initial_Year)*31536000
+	N = round(Time_Threshold / Sim_Context.spec.Time_Step)
 
-	Times, Gats = Serialise(Historic_Temperatures)
-	axis.plot(Times, Gats, "k--")	
+	def plot_gats(Sim: Sim_Result, Label: str, Colour: str):
+		gats = np.array(Average(Sim, lambda x: x, (-90,90)))[N::365]
+		times = np.array(Sim.times)[N::365]
+		axis.plot(times, gats, "--", color=Colour, label=Label)
 
+	gats = np.array(Average(Sim_Context, lambda x: x, (-90,90)))[:N:365]
+	times = np.array(Sim_Context.times)[:N:365]
+	axis.plot(times, gats, "k-")
+
+	plot_gats(Sim_RCP85, "RCP 8.5", "firebrick")
+	plot_gats(Sim_RCP45, "RCP 4.5", "royalblue")
+	plot_gats(Sim_RCP26, "RCP 2.6", "seagreen")
+  
 	plt.ylabel("Temperature (k)")
 	plt.xlabel("Year")
 	plt.legend()
 
 	Save_Figure(fig, "gat_forecast")
-	# -------------------------------------------------------------------
 
+	# -------------------------------------------------------------------
+ 
+	# Plot global temperature distributions
+	# fig, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False,figsize=(6.4, 4))
+  
+	# def plot_dist(sim: Sim_Result, name: str, col: str, line_pattern: str = "-"):
+	# 	Average_Temps = []
+
+	# 	Steps_Per_Year = int(3.154e7 / sim.spec.Time_Step) + 1
+	# 	Temp_Dists = [sim.tps[-k] for k in range(1,Steps_Per_Year + 1)]
+  
+	# 	for k in range(len(sim.lats)):
+	# 		buffer = [arr[k] for arr in Temp_Dists]
+	# 		Average_Temps.append(np.mean(buffer))
+  
+	# 	axis.plot(np.degrees(sim.lats), Average_Temps, label=name, color=col, linestyle=line_pattern, linewidth=0.8)
+
+	# plot_dist(Sim_Context, "2023", Context_Col, line_pattern="--")
+	# plot_dist(Sim_RCP85, "RCP 8.5", RCP85_Col)
+	# # plot_dist(Sim_RCP6, "RCP 6", RCP6_Col)
+	# plot_dist(Sim_RCP45, "RCP 4.5", RCP45_Col)
+	# plot_dist(Sim_RCP26, "RCP 2.6", RCP26_Col)
+
+	# axis.set_xlabel("Latitude")
+	# axis.set_ylabel("Temperature (k)")
+	# axis.legend()
+
+	# Save_Figure(fig, "tdist_forecast")
+	
 # ---------------------------------------------------------------- #
 # 						Main Code Path	 							
 # ---------------------------------------------------------------- #
-# plt.style.use('science')
+plt.style.use('science')
 
 # [Thesis Ready]:
 # Fig_ClimateData()
