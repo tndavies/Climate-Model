@@ -5,6 +5,7 @@ import scienceplots
 import numpy as np
 
 from data import Historic_Temperatures
+from data import Wildfire_Damages
 from data import Historic_Co2
 from data import Serialise
 from data import RCP85_Data
@@ -90,7 +91,7 @@ def Fig_Co2Projections():
 # ---------------------------------------------------------------- #
 # 			Figure: Antarctica Altitude Correction 	 							
 # ---------------------------------------------------------------- #
-def Fig_Antarctica():
+def Fig_AntarcticCorrection():
 	fig, (Temp_axis, Alb_axis) = plt.subplots(nrows=2,ncols=1,sharex=True,figsize=(6.4, 4))
 
 	# -----------------------------------------------------------------------------------------
@@ -125,7 +126,7 @@ def Fig_Antarctica():
 	Alb_axis.set_xlabel("Year")
 	# Temp_axis.legend()
 
-	Save_Figure(fig, "antarctic")
+	Save_Figure(fig, "antarc_corr")
 
 # ---------------------------------------------------------------- #
 # 					Figure: Co2 Pathway Fitting 	 							
@@ -161,7 +162,7 @@ def Fig_Co2Interpolations():
 	Save_Figure(fig, "co2_interp")
  
 # ---------------------------------------------------------------- #
-# 					Figure: Forecasts 	 							
+# 						Figure: Forecasts 	 							
 # ---------------------------------------------------------------- #
 # @think: Is this plotting the year 2099 average, or the year 2100 average? (temp dists plot)
 # @todo: double check our averging code is working correctly.
@@ -229,16 +230,152 @@ def Fig_Forecasts():
 	# axis.legend()
 
 	# Save_Figure(fig, "tdist_forecast")
-	
+ 
+# ---------------------------------------------------------------- #
+# 				Figure: Wildfire Related Damages
+# ---------------------------------------------------------------- #
+def Fig_Wildfires():
+	fig, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False,figsize=(6.4, 4))
+
+	Target_Year = 2100
+	Duration = Target_Year - list(Historic_Temperatures)[0]
+	Sim_RCP85 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP85))
+	Sim_RCP6 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP6))
+	Sim_RCP45 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP45))
+	Sim_RCP26 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP26))
+
+	# wildfire damage - model usa temps, 0.63 pearson score.
+	USA_Bounds = (30,50)
+	Years, Damages = Serialise(Wildfire_Damages)
+	n0 = round(((Years[0] - Sim_RCP26.spec.Initial_Year)*31536000) / Sim_RCP26.spec.Time_Step)
+	n1 = round(((Years[-1] - Sim_RCP26.spec.Initial_Year)*31536000) / Sim_RCP26.spec.Time_Step) + 1
+	USA_Temps = np.array(Average(Sim_RCP26, lambda x: x, USA_Bounds))[n0:n1:365]
+	Wildfire_Regression = Polynomial.fit(USA_Temps, Damages, 1)
+
+	def get_damages(sim: Sim_Result):
+		USA_Temps = Average(sim, lambda x: x, USA_Bounds) 
+		return np.divide(Wildfire_Regression(np.array(USA_Temps)[n1::365]), 1e6)
+
+	def plot(sim: Sim_Result, lbl: str, col: str):
+		axis.plot(np.array(sim.times)[n1::365], get_damages(sim), "-", linewidth=1.3, color=col, label=lbl)
+
+	axis.plot(Years, np.divide(Damages, 1e6), "k--", label="Observed")
+
+	plot(Sim_RCP85, "RCP 8.5", "firebrick")
+	plot(Sim_RCP6, "RCP 6", "gold")
+	plot(Sim_RCP45, "RCP 4.5", "royalblue")
+	plot(Sim_RCP26, "RCP 2.6", "seagreen")
+
+	axis.set_xlabel("Year")
+	axis.set_ylabel("Acres Burned (millions)")
+	axis.legend()
+	plt.show()
+ 
+# ---------------------------------------------------------------- #
+# 				Figure: Antarctica Melting Trends
+# ---------------------------------------------------------------- #
+def Fig_AntarcticaMelting():
+	fig, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False,figsize=(6.4, 4))
+
+	Target_Year = 2100
+	Duration = Target_Year - list(Historic_Temperatures)[0]
+	Sim_RCP85 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP85))
+	Sim_RCP6 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP6))
+	Sim_RCP45 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP45))
+	Sim_RCP26 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP26))
+
+	Plot_Offset = Get_ClimateRecordLength()
+	def plot(Sim: Sim_Result, lbl: str, col: str):	
+		Antarctic_Temps = Average(Sim, lambda x: x, Antarctic_Bounds)
+		Annual_Forecasts = np.array_split(Antarctic_Temps, Duration)
+		Times, Frequencies = [], []
+		
+		Year_Number = Sim.spec.Initial_Year
+		for year in Annual_Forecasts:
+			DaysAboveFreezing = 0
+			for T in year: 
+				if T > 273.15: DaysAboveFreezing += 1
+			Frequencies.append(100*(DaysAboveFreezing / 365))
+			Times.append(Year_Number)
+			Year_Number += 1
+
+		Sample_Times = np.array(Times)[Plot_Offset:]
+		Sample_Freqs = np.array(Frequencies)[Plot_Offset:]
+		SmoothFit = Polynomial.fit(Sample_Times, Sample_Freqs, 2)
+
+		Plot_Times = np.linspace(Sample_Times[0], Sample_Times[-1], 1000)
+		axis.plot(Plot_Times, SmoothFit(Plot_Times), linewidth=1.0, label=lbl, color=col)
+
+	plot(Sim_RCP85, "RCP 8.5", "firebrick")
+	plot(Sim_RCP6, "RCP 6", "gold")
+	plot(Sim_RCP45, "RCP 4.5", "royalblue")
+	plot(Sim_RCP26, "RCP 2.6", "seagreen")
+ 
+	axis.set_xlabel("Year")
+	axis.set_ylabel("Portion of year above freezing")
+	axis.legend()
+	plt.show()
+ 
+# ---------------------------------------------------------------- #
+# 						Figure: Heatwaves
+# ---------------------------------------------------------------- #
+def Fig_Heatwaves():
+	fig, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False,figsize=(6.4, 4))
+
+	Target_Year = 2100
+	Duration = Target_Year - list(Historic_Temperatures)[0]
+	Sim_RCP85 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP85))
+	# Sim_RCP6 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP6))
+	# Sim_RCP45 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP45))
+	# Sim_RCP26 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP26))
+
+	print(Sim_RCP85.tps)
+
+	Plot_Offset = 0 #Get_ClimateRecordLength()
+	def plot(Sim: Sim_Result, lbl: str, col: str):	
+		Temps = Average(Sim, lambda x: x, (-40,70))
+		Annual_Forecasts = np.array_split(Temps, Duration)
+		Times, Frequencies = [], []
+		
+		Year_Number = Sim.spec.Initial_Year
+		for year in Annual_Forecasts:
+			DangerousDays = 0
+			for T in year: 
+				if T >= 308.15: DangerousDays += 1
+			Frequencies.append(DangerousDays)
+			Times.append(Year_Number)
+			Year_Number += 1
+
+		axis.plot(np.array(Times)[Plot_Offset:], np.array(Frequencies)[Plot_Offset:], linewidth=1.0, label=lbl, color=col)
+
+	plot(Sim_RCP85, "RCP 8.5", "firebrick")
+	# plot(Sim_RCP6, "RCP 6", "gold")
+	# plot(Sim_RCP45, "RCP 4.5", "royalblue")
+	# plot(Sim_RCP26, "RCP 2.6", "seagreen")
+ 
+	axis.set_xlabel("Year")
+	axis.set_ylabel("Portion of year above 30C")
+	axis.legend()
+	plt.show()
+ 
 # ---------------------------------------------------------------- #
 # 						Main Code Path	 							
 # ---------------------------------------------------------------- #
-plt.style.use('science')
+# plt.style.use('science')
 
 # [Thesis Ready]:
 # Fig_ClimateData()
 # Fig_ModelCalibration()
 # Fig_Co2Projections()
-# Fig_Antarctica()
+# Fig_AntarcticCorrection()
 # Fig_Co2Interpolations()
-Fig_Forecasts()
+# Fig_Forecasts() # TODO: Average over 2100 for temp dists, not just plot last datapoint in the year!
+# Fig_AntarcticaMelting()
+
+# TODO:
+# 4) Add another country for wildfires
+Fig_Wildfires()
+
+# TODO:
+# Get heatwaves plot working
+# Fig_Heatwaves()
