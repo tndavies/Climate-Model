@@ -361,7 +361,7 @@ def Fig_Heatwaves():
 # ---------------------------------------------------------------- #
 # 						Main Code Path	 							
 # ---------------------------------------------------------------- #
-# plt.style.use('science')
+plt.style.use('science')
 
 # [Thesis Ready]:
 # Fig_ClimateData()
@@ -374,8 +374,101 @@ def Fig_Heatwaves():
 
 # TODO:
 # 4) Add another country for wildfires
-Fig_Wildfires()
+# Fig_Wildfires()
 
 # TODO:
 # Get heatwaves plot working
 # Fig_Heatwaves()
+
+def Fig_Geography():
+	fig, (ax0, ax1) = plt.subplots(nrows=2,ncols=1,sharex=False,figsize=(3, 2))
+
+	ax0.set_xlabel("Latitude", fontsize=20)
+	ax0.set_ylabel(r"$f_l$", fontsize=20)
+	lats = np.linspace(-90, 90, 1000)
+	fl = [1.0 - Get_OceanFraction(lat, to_degrees=False) for lat in lats]
+	ax0.plot(lats, fl, "k-")
+
+	zonal_temps = np.linspace(180, 300, 1000)
+	Ocean_Lat, Land_Lat = np.radians(-55.0), np.radians(-90.0)
+	ocean_hc = [calc_AverageHeatCapacity(Ocean_Lat, T) for T in zonal_temps]
+	land_hc = [calc_AverageHeatCapacity(Land_Lat, T) for T in zonal_temps]
+	hc_ices = [C_Transitioning_Ice if(T >= 263 and T <= 273) else C_Land for T in zonal_temps]
+
+	ax1.plot(zonal_temps, ocean_hc, "k-", label="Ocean")
+	ax1.plot(zonal_temps, land_hc, "r-", label="Land")
+	ax1.set_xlabel("Temperature (k)", fontsize=20)
+	ax1.set_ylabel(r"$\tilde{C}_\lambda$", fontsize=20)
+	# ax1.plot(zonal_temps, hc_ices, "b--", label="Ice heat capacity function") 
+	ax1.legend()
+
+	plt.show()
+    
+def Fig_SurfaceAndStellarIrradiance():
+	fig, (ax0, ax1) = plt.subplots(nrows=2,ncols=1,sharex=True,figsize=(3, 2))
+
+	times = np.linspace(0, 3.154e7, 1000)
+	plot_times = np.divide(times, 86400)
+
+	# Stellar Irradiance across the year, for an elliptical orbit.
+	qstar = [calc_RadiationIntensity(t) for t in times] 
+	ax0.axhline(y=1361.0, linestyle=":", color='k', linewidth=1.8, alpha=0.6)
+	ax0.plot(plot_times, qstar, "k-")
+
+	# Surface Irradiance across the year, for various latitudes.
+	lats = [-np.pi/2, np.radians(7.5), np.pi/2]
+	styles = ["r-","k-","b-"]
+	for idx,l in enumerate(lats):
+		Irradiances = [calc_AverageRadiation(l, t) for t in times]
+		ax1.plot(plot_times, Irradiances, styles[idx])
+
+	ax0.set_ylabel("Stellar Irradiance (Q star)")
+	ax1.set_ylabel("Diurnal Surface Irradiance")
+	ax1.set_xlabel("Day")
+
+	plt.show()
+ 
+def Fig_Albedo():
+	fig, (ax0, ax1) = plt.subplots(nrows=2,ncols=1,sharex=True,figsize=(3, 2))
+
+	temps = np.linspace(220, 300, 1000)	
+	albedos = [calc_Albedo(T) for T in temps]
+	fis = [Calc_IceFraction(T) for T in temps]
+ 
+	ax0.plot(temps, albedos, "k-")
+	ax1.plot(temps, fis, "k-")
+
+	ax0.set_ylabel("Zonal Surface Albedo")
+	ax1.set_ylabel("Ice Fraction")
+	ax1.set_xlabel("Temperature (K)")
+
+	plt.show() 
+ 
+def Fig_Absorption():
+	fig, (ax0,ax1) = plt.subplots(nrows=1,ncols=2,sharex=False)
+
+	# fixed Co2-level, varying temp
+	temps = np.linspace(220, 300, 1000)	
+	absoprtions = [calc_AtmosphericAbsorption(T, Co2_Norm, 0.0) for T in temps]
+	ax0.plot(temps, absoprtions, "k-")
+	
+	ax0.set_ylabel("Amount absorbed")
+	ax0.set_xlabel("Temperature (K)")
+ 
+	pCo2 = np.linspace(Co2_Norm, 3*Co2_Norm, 1000)	
+
+	absoprtions = [calc_AtmosphericAbsorption(273, ppm, Best_Beta) for ppm in pCo2]
+	ax1.plot(pCo2, absoprtions, "k-", linewidth=1.8, label=str(Best_Beta))
+  
+	for idx,B in enumerate(np.linspace(0,1,4)):
+		# fixed temp, varying Co2-level
+		absoprtions = [calc_AtmosphericAbsorption(273, ppm, B) for ppm in pCo2]
+		ax1.plot(pCo2, absoprtions, "k--", label=str(B))
+ 
+	ax1.set_ylabel("Amount absorbed")
+	ax1.set_xlabel("Co2 (ppm)")
+	ax1.legend()
+
+	plt.show() 
+
+Fig_Absorption()

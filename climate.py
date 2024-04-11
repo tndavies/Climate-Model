@@ -146,25 +146,18 @@ def calc_AverageRadiation(lat: float, t: float):
 	q = calc_RadiationIntensity(t)
 	decl = calc_Declination(t)
 
-	avg_radiation = 0.0
-	if(np.isclose(lat, np.pi/2)):
-		avg_radiation = q*np.sin(decl) if (decl > 0) else 0.0
-	elif(np.isclose(lat, -np.pi/2)):
-		avg_radiation = q*np.sin(-decl) if (decl < 0) else 0.0
-	else:
-		H = 0.0
-		tan_prod = np.tan(lat) * np.tan(decl)
-		
-		if(tan_prod < -1.0):
-			return 0.0
-		elif(tan_prod > 1.0):
-			H = np.pi
-		else:
-			H = np.arccos(-tan_prod)
+	H = 0.0
+	tan_prod = np.tan(lat) * np.tan(decl)
+	if(tan_prod > 1.0): # sun always above horizon over course of day.
+		H = np.pi
+	elif(tan_prod < -1.0): # sun never rises above horizon over course of day.
+		return 0.0
+	else: # gets the period of the day-rotation that the sun is above horizon for.
+		H = np.arccos(-tan_prod)
 
-		term0 = H * np.sin(lat) * np.sin(decl)
-		term1 = np.cos(lat) * np.cos(decl) * np.sin(H)
-		avg_radiation = (q/np.pi) * (term0 + term1)
+	term0 = H * np.sin(lat) * np.sin(decl)
+	term1 = np.cos(lat) * np.cos(decl) * np.sin(H)
+	avg_radiation = (q/np.pi) * (term0 + term1)
 
 	return avg_radiation
 
@@ -177,6 +170,9 @@ def calc_Albedo(T: float):
 # ---------------------------------------------------------------- #
 # 						IR Cooling Function (I) 							
 # ---------------------------------------------------------------- #
+def calc_AtmosphericAbsorption(T: float, pCo2: float, beta: float):
+	return np.power((T/273),3) * np.power(pCo2 / Co2_Norm, beta)
+
 def calculate_IRCooling(initial_year: int, t: float, rcp: callable, alpha: float, beta: float, temp: float):
 	ts = to_timestamp(initial_year, t)
 	
@@ -188,8 +184,8 @@ def calculate_IRCooling(initial_year: int, t: float, rcp: callable, alpha: float
 	elif ts > list(Historic_Temperatures)[-1]:
 		Co2 = rcp(np.array(ts))
 
-	Atmospheric_Absorption = alpha * np.power((temp/273),3) * np.power(Co2 / Co2_Norm, beta)
-	Dissipated_Radiation = (5.67e-8 * np.power(temp,4)) / (1 + Atmospheric_Absorption)
+	gamma = calc_AtmosphericAbsorption(temp, Co2, beta)
+	Dissipated_Radiation = (5.67e-8 * np.power(temp,4)) / (1 + alpha*gamma)
 
 	return Dissipated_Radiation
 
@@ -200,8 +196,8 @@ def Calc_IceFraction(T: float):
 	param = (T - 273.0) / 10.0
 	return np.maximum(0, 1 - np.exp(param))
 
-def Get_OceanFraction(lat: float):
-	lat_deg = np.degrees(lat)
+def Get_OceanFraction(lat: float, to_degrees: bool = True):
+	lat_deg = np.degrees(lat) if to_degrees else lat
 	assert (lat_deg >= -90 and lat_deg <= 90), "Invalid Latitude Coordinate" 
 
 	for Band_Range in Earth_Geography:
