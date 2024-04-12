@@ -36,7 +36,6 @@ C_Land = 					1.11e7 		# [J/K]
 C_Ocean = 					2.201e8 	# [J/K]
 Diffusivity =				0.5394		# [???]
 Co2_Norm = 					428			# [ppm]
-Prerecord_Co2Level =		300			# [ppm]
 Antarctic_Bounds = 			(-90,-70)	# [degrees]
 Best_Alpha = 				0.6955093969474789
 Best_Beta = 				0.05221459427741913
@@ -44,15 +43,17 @@ Stability_Duration = 		20 			# [years]
 
 @dataclass
 class Sim_Specification:
-    Duration: float	# [years]
-    # Optional (below)
-    Initial_Year: float = list(Historic_Temperatures)[0]
-    Altitude_Correction: bool = True
-    Alpha: float = Best_Alpha
-    Time_Step: float = 86400
-    Beta: float = Best_Beta
-    RCP: callable = None
-    Lat_Step: int = 10
+	Duration: float	# [years]
+	# Optional (below)
+	Initial_Year: float = list(Historic_Temperatures)[0]
+	Altitude_Correction: bool = True
+	Alpha: float = Best_Alpha
+	Time_Step: float = 86400
+	Beta: float = Best_Beta
+	RCP: callable = None
+	Lat_Step: int = 10
+	Prerecord_Co2Level: float = 300	# Co2 ppm used if sim times are before observational data.
+	InitialTempDist: list = None
 
 @dataclass
 class Sim_Result:
@@ -173,7 +174,7 @@ def calc_Albedo(T: float):
 def calc_AtmosphericAbsorption(T: float, pCo2: float, beta: float):
 	return np.power((T/273),3) * np.power(pCo2 / Co2_Norm, beta)
 
-def calculate_IRCooling(initial_year: int, t: float, rcp: callable, alpha: float, beta: float, temp: float):
+def calculate_IRCooling(initial_year: int, t: float, rcp: callable, alpha: float, beta: float, temp: float, Prerecord_Co2Level: float):
 	ts = to_timestamp(initial_year, t)
 	
 	Co2 = None
@@ -265,7 +266,7 @@ def calc_Temp_tROC(spec: Sim_Specification, lat_grid: list, tp: list, lat_idx: i
 	sROC1 = calc_Temp_sROC1(lat_grid, tp, lat_idx)
 	sROC2 = calc_Temp_sROC2(lat_grid, tp, lat_idx)
 
-	IR_Cooling = calculate_IRCooling(spec.Initial_Year, t, spec.RCP, spec.Alpha, spec.Beta, temp)
+	IR_Cooling = calculate_IRCooling(spec.Initial_Year, t, spec.RCP, spec.Alpha, spec.Beta, temp, spec.Prerecord_Co2Level)
 	Heat_Capacity = calc_AverageHeatCapacity(lat, temp)
 	Radiation_In = calc_AverageRadiation(lat, t)
 	Albedo = calc_Albedo(temp)
@@ -280,10 +281,14 @@ def Simulate_Climate(spec: Sim_Specification) -> Sim_Result:
     
 	Time_Grid = np.arange(spec.Time_Step, Duration + spec.Time_Step, spec.Time_Step)
 	Lat_Grid = [np.radians(l) for l in np.arange(-90, 90 + spec.Lat_Step, spec.Lat_Step)]
-
-	assert len(Equilibrium_Config) == len(Lat_Grid), "Equilibrium-Config mismatched w/ latitude-grid size"
-	Temperature_Profiles = [Equilibrium_Config]
 	Time_Stamps = [spec.Initial_Year]
+
+	Temperature_Profiles = None
+	if spec.InitialTempDist != None:
+		assert len(spec.InitialTempDist) == len(Lat_Grid), "Equilibrium-Config mismatched w/ latitude-grid size"
+		Temperature_Profiles = [spec.InitialTempDist]
+	else:
+		Temperature_Profiles = [len(Lat_Grid)*[Historic_Temperatures[list(Historic_Temperatures)[0]]]]	
 
 	def evolve_lat_temp(lat_idx: int, prior_tp: list[float], t: float):
 		tROC =	calc_Temp_tROC(spec, Lat_Grid, prior_tp, lat_idx, t)

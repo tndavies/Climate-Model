@@ -471,4 +471,33 @@ def Fig_Absorption():
 
 	plt.show() 
 
-Fig_Absorption()
+def Fig_BasicCalibration():
+	fig, (ax0, ax1) = plt.subplots(nrows=1,ncols=2,sharex=False)
+	
+	# Simulation of record, with uniform dist.
+	sim = Simulate_Climate(Sim_Specification(Get_ClimateRecordLength()))
+	Gats = Average(sim, lambda x: x, (-90,90))
+	Sample_Times = np.array(sim.times)[::365]
+	Sample_Gats = np.array(Gats)[::365]
+	ax0.plot(Sample_Times, Sample_Gats, "b-")
+
+	# Simulation of record, with equillibrium dist.
+	sim = Simulate_Climate(Sim_Specification(Get_ClimateRecordLength(), InitialTempDist=Equilibrium_Config))
+	Gats = Average(sim, lambda x: x, (-90,90))
+	Sample_Times = np.array(sim.times)[::365]
+	Sample_Gats = np.array(Gats)[::365]
+	ax1.plot(Sample_Times, Sample_Gats, "r-")
+
+	Obs_Times, Obs_Gats = Serialise(Historic_Temperatures)
+	ax0.plot(Obs_Times, Obs_Gats, "k:")
+	ax1.plot(Obs_Times, Obs_Gats, "k:")
+
+	ax0.set_xlabel("Time")
+	ax0.set_ylabel("Gat")
+	ax1.set_xlabel("Time")
+	ax1.set_ylabel("Gat")
+
+	plt.show() 
+
+
+Fig_BasicCalibration()
