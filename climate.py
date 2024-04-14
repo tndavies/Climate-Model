@@ -36,6 +36,7 @@ C_Land = 					1.11e7 		# [J/K]
 C_Ocean = 					2.201e8 	# [J/K]
 Diffusivity =				0.5394		# [???]
 Co2_Norm = 					428			# [ppm]
+Temp_Norm =					273			# [K]
 Antarctic_Bounds = 			(-90,-70)	# [degrees]
 Best_Alpha = 				0.6955093969474789
 Best_Beta = 				0.05221459427741913
@@ -172,7 +173,7 @@ def calc_Albedo(T: float):
 # 						IR Cooling Function (I) 							
 # ---------------------------------------------------------------- #
 def calc_AtmosphericAbsorption(T: float, pCo2: float, beta: float):
-	return np.power((T/273),3) * np.power(pCo2 / Co2_Norm, beta)
+	return np.power((T/Temp_Norm),3) * np.power(pCo2 / Co2_Norm, beta)
 
 def calculate_IRCooling(initial_year: int, t: float, rcp: callable, alpha: float, beta: float, temp: float, Prerecord_Co2Level: float):
 	ts = to_timestamp(initial_year, t)
@@ -284,11 +285,14 @@ def Simulate_Climate(spec: Sim_Specification) -> Sim_Result:
 	Time_Stamps = [spec.Initial_Year]
 
 	Temperature_Profiles = None
-	if spec.InitialTempDist != None:
+	if spec.InitialTempDist == None:
+		Uniform_Temerature_Distribution = len(Lat_Grid)*[Historic_Temperatures[list(Historic_Temperatures)[0]]]
+		Temperature_Profiles = [Uniform_Temerature_Distribution]
+		print("WARNING: Using Uniform Initial Condition!")
+	else:
 		assert len(spec.InitialTempDist) == len(Lat_Grid), "Equilibrium-Config mismatched w/ latitude-grid size"
 		Temperature_Profiles = [spec.InitialTempDist]
-	else:
-		Temperature_Profiles = [len(Lat_Grid)*[Historic_Temperatures[list(Historic_Temperatures)[0]]]]	
+		print("WARNING: Using Stable Initial Condition!")
 
 	def evolve_lat_temp(lat_idx: int, prior_tp: list[float], t: float):
 		tROC =	calc_Temp_tROC(spec, Lat_Grid, prior_tp, lat_idx, t)
@@ -311,28 +315,28 @@ def Simulate_Climate(spec: Sim_Specification) -> Sim_Result:
 # ---------------------------------------------------------------- #
 # 						Model Calibration 							
 # ---------------------------------------------------------------- #
+def Calc_ComparisonMetric(sim: Sim_Result):
+	Gats = Average(sim, lambda x: x, (-90,90))
+	Sampled_Timestamps = np.array(sim.times)[::365]
+	Sampled_Gats = np.array(Gats)[::365]
+
+	Similarity_Metric = 0.0
+	for k in range(len(Sampled_Timestamps)):
+		Timestamp, Gat = Sampled_Timestamps[k], Sampled_Gats[k]
+		Lookup_Year = int(round(Timestamp))
+
+		if Lookup_Year in Historic_Temperatures:
+			Observed_Gat = Historic_Temperatures[Lookup_Year]
+			Similarity_Metric += np.power((Gat - Observed_Gat),2.0)
+
+	return Similarity_Metric
+
 def Optimize_Model():
-	def compare(sim: Sim_Result):
-		Gats = Average(sim, lambda x: x, (-90,90))
-		Sampled_Timestamps = np.array(sim.times)[::365]
-		Sampled_Gats = np.array(Gats)[::365]
-
-		Similarity_Metric = 0.0
-		for k in range(len(Sampled_Timestamps)):
-			Timestamp, Gat = Sampled_Timestamps[k], Sampled_Gats[k]
-			Lookup_Year = int(round(Timestamp))
-
-			if Lookup_Year in Historic_Temperatures:
-				Observed_Gat = Historic_Temperatures[Lookup_Year]
-				Similarity_Metric += np.power((Gat - Observed_Gat),2.0)
-
-		return Similarity_Metric
-
 	def Objective_Func(params: list):
 		ClimateRecord_Length = list(Historic_Temperatures)[-1] - list(Historic_Temperatures)[0]
 		spec = Sim_Specification(ClimateRecord_Length, Alpha=params[0], Beta=params[1])
 		result  = Simulate_Climate(spec)
-		likeness = compare(result)
+		likeness = Calc_ComparisonMetric(result)
 
 		Log_string = "Alpha={a}, Beta={b}, Likeness={l}".format(a=params[0],b=params[1],l=likeness)
 		print(Log_string)

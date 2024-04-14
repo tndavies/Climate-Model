@@ -13,6 +13,10 @@ from data import RCP26_Data
 from data import RCP45_Data
 from data import RCP6_Data
 
+# plt.style.use('science')
+plt.rcParams["font.family"] = "Times New Roman"
+plt.rcParams['font.size'] = 12
+
 # ---------------------------------------------------------------- #
 # 						Utility Functions	 							
 # ---------------------------------------------------------------- #
@@ -20,8 +24,8 @@ def Get_ClimateRecordLength():
     return list(Historic_Temperatures)[-1] - list(Historic_Temperatures)[0]
 
 def Save_Figure(fig, filename: str):
-    path = ".\\figures\\" + filename + ".png"
-    fig.savefig(path, dpi=300, bbox_inches="tight")
+    path = ".\\figures\\" + filename + ".pdf"
+    fig.savefig(path, dpi=96, bbox_inches="tight")
 
 # ---------------------------------------------------------------- #
 # 				Figure: Climate Observational Data	 							
@@ -35,7 +39,7 @@ def Fig_ClimateData():
 	Times, Concentrations = Serialise(Historic_Co2)
 	co2.plot(Times, Concentrations, "k-")
 
-	gat.set_ylabel("Temperature (k)")
+	gat.set_ylabel("Temperature (K)")
 	co2.set_ylabel("Concentration (ppm)")
 	gat.set_xlabel("Year")
 	
@@ -361,15 +365,17 @@ def Fig_Heatwaves():
 # ---------------------------------------------------------------- #
 # 						Main Code Path	 							
 # ---------------------------------------------------------------- #
-plt.style.use('science')
+Fig_ClimateData()
 
-# [Thesis Ready]:
-# Fig_ClimateData()
 # Fig_ModelCalibration()
 # Fig_Co2Projections()
 # Fig_AntarcticCorrection()
 # Fig_Co2Interpolations()
-# Fig_Forecasts() # TODO: Average over 2100 for temp dists, not just plot last datapoint in the year!
+
+# TODO: Average over 2100 for temp dists, not just plot last datapoint in the year!
+# TODO: Add error shading
+# Fig_Forecasts() 
+
 # Fig_AntarcticaMelting()
 
 # TODO:
@@ -500,4 +506,4 @@ def Fig_BasicCalibration():
 	plt.show() 
 
 
-Fig_BasicCalibration()
+# Fig_BasicCalibration()
