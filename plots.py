@@ -217,5 +217,23 @@ def Fig_AntarcticaCorrection():
     ax_temp.axhline(y=273, linestyle="-", color='b', linewidth=1.2, alpha=0.4, label="Freezing point")
 
     plt.show()
+    
+def Fig_DipDependance():
+    fig, (ax) = plt.subplots(nrows=1,ncols=1,sharex=False)
 
-Fig_AntarcticaCorrection()
+    # We simulate a few decades before the record starts, as to sinmulate the
+    # climate in a constant atmospheric CO2 concentration, with the uniform
+    # temperature IC, varying the CO2 to show how the dip responds.
+
+    ax.set_xlabel("Year")
+    ax.set_ylabel("Temperature (K)")
+
+    Sim_Duration = 35
+    for idx,Const_CO2 in enumerate(np.linspace(0.5*Co2_Norm, 2*Co2_Norm, 5)): 
+        Sim = Simulate_Climate(Sim_Specification(Sim_Duration, Initial_Year=0, Prerecord_Co2Level=Const_CO2))
+        Gats = Average(Sim, lambda x: x, (-90, 90))
+        ax.plot(Sample_Years(Sim.times), Sample_Years(Gats), "k-", alpha=1/(1+idx**1.2))
+    
+    plt.show()
+
+Fig_DipDependance()
