@@ -244,85 +244,122 @@ def Fig_DipDependance():
 def Fig_Forecasts():
     Target_Year = 2100
     Duration = 1 + (Target_Year - list(Historic_Temperatures)[0])
-   
-    Duration = 2
     Sim_RCP85 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP85, InitialTempDist=Equilibrium_Config))
-    # Sim_RCP45 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP45, InitialTempDist=Equilibrium_Config))
-    # Sim_RCP6 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP6, InitialTempDist=Equilibrium_Config))
-    # Sim_RCP26 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP26, InitialTempDist=Equilibrium_Config))
+    Sim_RCP45 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP45, InitialTempDist=Equilibrium_Config))
+    Sim_RCP6 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP6, InitialTempDist=Equilibrium_Config))
+    Sim_RCP26 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP26, InitialTempDist=Equilibrium_Config))
     Sim_Context = Sim_RCP85
- 
+    
 	# GAT Forecast plot
   	# ----------------------------------------------------------------
-    # fig, (ax) = plt.subplots(nrows=1,ncols=1,sharex=False)
-    # ax.set_xlabel("Time (years)")
-    # ax.set_ylabel("Temperature (K)")
+    fig, (ax) = plt.subplots(nrows=1,ncols=1,sharex=False)
+    ax.set_xlabel("Time (years)")
+    ax.set_ylabel("Temperature (K)")
 
-    # LastYearOnRecord = (list(Historic_Temperatures)[-1] - Sim_Context.spec.Initial_Year)*31536000
-    # N = round(LastYearOnRecord / Sim_Context.spec.Time_Step)
-    # N = 0
+    LastYearOnRecord = (list(Historic_Temperatures)[-1] - Sim_Context.spec.Initial_Year)*31536000
+    N = round(LastYearOnRecord / Sim_Context.spec.Time_Step)
 
-    # Times = np.array(Sim_RCP85.times)[N::365]
-    # GATs_RCP85 = np.array(Average(Sim_RCP85, lambda x: x, (-90,90)))[N::365]
-    # ax.plot(Times, GATs_RCP85, "-", color="firebrick")
+    Times = np.array(Sim_RCP85.times)[N::365]
+    GATs_RCP85 = np.array(Average(Sim_RCP85, lambda x: x, (-90,90)))[N::365]
+    ax.plot(Times, GATs_RCP85, "-", color="firebrick")
 
-    # Times = np.array(Sim_RCP6.times)[N::365]
-    # GATs = np.array(Average(Sim_RCP6, lambda x: x, (-90,90)))[N::365]
-    # ax.plot(Times, GATs, "-", color="darkorange")
+    Times = np.array(Sim_RCP6.times)[N::365]
+    GATs = np.array(Average(Sim_RCP6, lambda x: x, (-90,90)))[N::365]
+    ax.plot(Times, GATs, "-", color="darkorange")
 
-    # Times = np.array(Sim_RCP45.times)[N::365]
-    # GATs = np.array(Average(Sim_RCP45, lambda x: x, (-90,90)))[N::365]
-    # ax.plot(Times, GATs, "-", color="royalblue")
+    Times = np.array(Sim_RCP45.times)[N::365]
+    GATs = np.array(Average(Sim_RCP45, lambda x: x, (-90,90)))[N::365]
+    ax.plot(Times, GATs, "-", color="royalblue")
     
-    # Times = np.array(Sim_RCP26.times)[N::365]
-    # GATs_RCP26 = np.array(Average(Sim_RCP26, lambda x: x, (-90,90)))[N::365]
-    # ax.plot(Times, GATs_RCP26, "-", color="seagreen")
+    Times = np.array(Sim_RCP26.times)[N::365]
+    GATs_RCP26 = np.array(Average(Sim_RCP26, lambda x: x, (-90,90)))[N::365]
+    ax.plot(Times, GATs_RCP26, "-", color="seagreen")
 
-    # ax.fill_between(Times, GATs_RCP26, GATs_RCP85, color="slategrey", alpha=0.25)
+    ax.fill_between(Times, GATs_RCP26, GATs_RCP85, color="slategrey", alpha=0.25)
 
-    # plt.show()
+    plt.show()
     
     # Temperature Distributions in the year 2100
   	# ----------------------------------------------------------------
-    fig, (ax) = plt.subplots(nrows=1,ncols=1,sharex=False)
-    ax.set_xlabel(r"$\lambda$")
-    ax.set_ylabel("Temperature (K)")
+    # fig, (ax) = plt.subplots(nrows=1,ncols=1,sharex=False)
+    # ax.set_xlabel(r"$\lambda$", fontsize=16)
+    # ax.set_ylabel("Temperature (K)")
 
-    avg_td = []
-    tdists_2100 = np.array(Sim_RCP85.tps)[-365:]
-    for idx in range(len(Sim_Context.spec.lats)):
-        td_zonal_temps = [td[idx] for td in tdists_2100]
-        avg_td.append(np.mean(td_zonal_temps))
+    # def get_avgTDist(sim: Sim_Result):
+    #     avg_td = []
+    #     tdists_2100 = np.array(sim.tps)[-365:]
+    #     for idx in range(len(Sim_Context.lats)):
+    #         td_zonal_temps = [td[idx] for td in tdists_2100]
+    #         avg_td.append(np.mean(td_zonal_temps))
+    #     return avg_td
+        
+    # ax.plot(np.degrees(Sim_Context.lats), get_avgTDist(Sim_RCP85), "-", color="firebrick", linewidth=1.8) 
+    # ax.plot(np.degrees(Sim_Context.lats), get_avgTDist(Sim_RCP6), "-", color="darkorange", linewidth=1.8) 
+    # ax.plot(np.degrees(Sim_Context.lats), get_avgTDist(Sim_RCP45), "-", color="royalblue", linewidth=1.8) 
+    # ax.plot(np.degrees(Sim_Context.lats), get_avgTDist(Sim_RCP26), "-", color="seagreen", linewidth=1.8) 
 
-    ax.plot(np.degrees(Sim_Context.lats), avg_td, "r-") 
+    # avg_td = []
+    # tdists_LastYrOnRecord = np.array(Sim_Context.tps)[N-365:N]
+    # for idx in range(len(Sim_Context.lats)):
+    #     td_zonal_temps = [td[idx] for td in tdists_LastYrOnRecord]
+    #     avg_td.append(np.mean(td_zonal_temps))
+    # ax.plot(np.degrees(Sim_Context.lats), avg_td, "--", color="black", linewidth=2.2, alpha=0.5) 
 
-    plt.show()
+    # plt.show()
      
-	# Plot global temperature distributions
-	# fig, (axis) = plt.subplots(nrows=1,ncols=1,sharex=False,figsize=(6.4, 4))
-  
-	# def plot_dist(sim: Sim_Result, name: str, col: str, line_pattern: str = "-"):
-	# 	Average_Temps = []
+def Fig_AntarcticaForecast():
+    fig, (ax_temp, ax_alb) = plt.subplots(nrows=2,ncols=1,sharex=False)
+    
+    ax_temp.set_ylabel(r"$\sigma$ (\%)", fontsize=14)
+    ax_alb.set_ylabel("Albedo")
+    fig.supxlabel("Year")
 
-	# 	Steps_Per_Year = int(3.154e7 / sim.spec.Time_Step) + 1
-	# 	Temp_Dists = [sim.tps[-k] for k in range(1,Steps_Per_Year + 1)]
-  
-	# 	for k in range(len(sim.lats)):
-	# 		buffer = [arr[k] for arr in Temp_Dists]
-	# 		Average_Temps.append(np.mean(buffer))
-  
-	# 	axis.plot(np.degrees(sim.lats), Average_Temps, label=name, color=col, linestyle=line_pattern, linewidth=0.8)
+    Target_Year = 2100
+    Duration = Target_Year - list(Historic_Temperatures)[0]
+    Sim_RCP85 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP85, InitialTempDist=Equilibrium_Config))
+    Sim_RCP6 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP6, InitialTempDist=Equilibrium_Config))
+    Sim_RCP45 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP45, InitialTempDist=Equilibrium_Config))
+    Sim_RCP26 = Simulate_Climate(Sim_Specification(Duration, RCP=RCP26, InitialTempDist=Equilibrium_Config))
 
-	# plot_dist(Sim_Context, "2023", Context_Col, line_pattern="--")
-	# plot_dist(Sim_RCP85, "RCP 8.5", RCP85_Col)
-	# # plot_dist(Sim_RCP6, "RCP 6", RCP6_Col)
-	# plot_dist(Sim_RCP45, "RCP 4.5", RCP45_Col)
-	# plot_dist(Sim_RCP26, "RCP 2.6", RCP26_Col)
+    def plot(Sim: Sim_Result, col: str):	
+        Antarctic_Temps = Average(Sim, lambda x: x, Antarctic_Bounds)
+        Antarctic_Albedo = Average(Sim, calc_Albedo, Antarctic_Bounds)
 
-	# axis.set_xlabel("Latitude")
-	# axis.set_ylabel("Temperature (k)")
-	# axis.legend()
+        Plot_Offset = Get_ClimateRecordLength()
+        Annual_Temps = np.array_split(Antarctic_Temps, Duration)
+        Annual_Albedos = np.array_split(Antarctic_Albedo, Duration)
 
-	# Save_Figure(fig, "tdist_forecast")
+        # Finds the 365-day albedo average, for each year in the Annual_Albedos 
+        Times, AvgAlbedos = [], []
+        Year_Number = Sim.spec.Initial_Year
+        for year in Annual_Albedos:
+            AvgAlbedos.append(np.mean(year))
+            Times.append(Year_Number)
+            Year_Number += 1
+        ax_alb.plot(np.array(Times)[Plot_Offset:], np.array(AvgAlbedos)[Plot_Offset:], "-", linewidth=1.5, color=col)
+
+        # Counts how many days are >0C for each set of 365 dats in Annual_Temps
+        Times, Frequencies = [], []
+        Year_Number = Sim.spec.Initial_Year
+        for year in Annual_Temps:
+            DaysAboveFreezing = 0
+            for T in year: 
+                if T > 273.15: DaysAboveFreezing += 1
+            Frequencies.append(100*(DaysAboveFreezing / 365))
+            Times.append(Year_Number)
+            Year_Number += 1
+
+        Sample_Times = np.array(Times)[Plot_Offset:]
+        Sample_Freqs = np.array(Frequencies)[Plot_Offset:]
+        SmoothFit = Polynomial.fit(Sample_Times, Sample_Freqs, 2)
+        Plot_Times = np.linspace(Sample_Times[0], Sample_Times[-1], 1000)
+        ax_temp.plot(Plot_Times, SmoothFit(Plot_Times), linewidth=1.5, color=col)
+
+    plot(Sim_RCP85, "firebrick")
+    plot(Sim_RCP6, "darkorange")
+    plot(Sim_RCP45, "royalblue")
+    plot(Sim_RCP26, "seagreen")
+     
+    plt.show()
  
-Fig_Forecasts()
+Fig_AntarcticaForecast()
