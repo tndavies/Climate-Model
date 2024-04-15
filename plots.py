@@ -191,4 +191,31 @@ def Fig_Geography():
 
     plt.show()
 
-Fig_HeatCapacityTest()
+def Fig_AntarcticaCorrection():
+    fig, (ax_temp, ax_alb) = plt.subplots(nrows=2,ncols=1,sharex=True)
+
+    ax_temp.set_ylabel("Temperature (K)")
+    ax_alb.set_ylabel("Albedo")
+    fig.supxlabel("Year")
+
+    Sim_Duration = Get_ClimateRecordLength()
+    SamplesPerYear = 2
+    N = int(365 / SamplesPerYear)
+
+    Corrected_Sim = Simulate_Climate(Sim_Specification(Sim_Duration, Altitude_Correction=True, InitialTempDist=Equilibrium_Config))
+    temps = Average(Corrected_Sim, lambda x: x, Antarctic_Bounds)
+    albedos = Average(Corrected_Sim, calc_Albedo, Antarctic_Bounds)
+    ax_temp.plot(np.array(Corrected_Sim.times)[::N], np.array(temps)[::N], "-", color="black")
+    ax_alb.plot(np.array(Corrected_Sim.times)[::N], np.array(albedos)[::N], "-", color="black")
+
+    Uncorrected_Sim = Simulate_Climate(Sim_Specification(Sim_Duration, Altitude_Correction=False, InitialTempDist=Equilibrium_Config))
+    temps = Average(Uncorrected_Sim, lambda x: x, Antarctic_Bounds)
+    albedos = Average(Uncorrected_Sim, calc_Albedo, Antarctic_Bounds)
+    ax_temp.plot(np.array(Uncorrected_Sim.times)[::N], np.array(temps)[::N], "--", color="tomato")
+    ax_alb.plot(np.array(Uncorrected_Sim.times)[::N], np.array(albedos)[::N], "--", color="tomato")
+
+    ax_temp.axhline(y=273, linestyle="-", color='b', linewidth=1.2, alpha=0.4, label="Freezing point")
+
+    plt.show()
+
+Fig_AntarcticaCorrection()
