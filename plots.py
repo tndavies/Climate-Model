@@ -205,16 +205,20 @@ def Fig_AntarcticaCorrection():
     Corrected_Sim = Simulate_Climate(Sim_Specification(Sim_Duration, Altitude_Correction=True, InitialTempDist=Equilibrium_Config))
     temps = Average(Corrected_Sim, lambda x: x, Antarctic_Bounds)
     albedos = Average(Corrected_Sim, calc_Albedo, Antarctic_Bounds)
+    Corrected_AvgAlbedo = np.mean(albedos)
     ax_temp.plot(np.array(Corrected_Sim.times)[::N], np.array(temps)[::N], "-", color="black")
-    ax_alb.plot(np.array(Corrected_Sim.times)[::N], np.array(albedos)[::N], "-", color="black")
+    ax_alb.plot(np.array(Corrected_Sim.times)[::N], np.array(albedos)[::N], ":", color="black", alpha=0.48)
 
     Uncorrected_Sim = Simulate_Climate(Sim_Specification(Sim_Duration, Altitude_Correction=False, InitialTempDist=Equilibrium_Config))
     temps = Average(Uncorrected_Sim, lambda x: x, Antarctic_Bounds)
     albedos = Average(Uncorrected_Sim, calc_Albedo, Antarctic_Bounds)
+    Uncorrected_AvgAlbedo = np.mean(albedos)
     ax_temp.plot(np.array(Uncorrected_Sim.times)[::N], np.array(temps)[::N], "--", color="tomato")
-    ax_alb.plot(np.array(Uncorrected_Sim.times)[::N], np.array(albedos)[::N], "--", color="tomato")
+    ax_alb.plot(np.array(Uncorrected_Sim.times)[::N], np.array(albedos)[::N], ":", color="tomato", alpha=0.48)
 
     ax_temp.axhline(y=273, linestyle="-", color='b', linewidth=1.2, alpha=0.4, label="Freezing point")
+    ax_alb.axhline(y=Corrected_AvgAlbedo, linestyle="-", color='k', linewidth=2.5)
+    ax_alb.axhline(y=Uncorrected_AvgAlbedo, linestyle="-", color='r', linewidth=2.5)
 
     plt.show()
     
@@ -236,4 +240,4 @@ def Fig_DipDependance():
     
     plt.show()
 
-Fig_DipDependance()
+Fig_AntarcticaCorrection()
