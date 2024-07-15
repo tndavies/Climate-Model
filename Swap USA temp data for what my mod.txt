@@ -1,9 +1,0 @@
-* Swap USA temp data for what my model says, then rerun regression analysis.
-* Make plot rel to todays acres burned (from data), instead of rcp 2.6
-	- include USA dataset on it
-	- add couple of other coutnries, austrailia etc.
-* moving average of antarctica data to smooth our the plots
-* arctic, permafrost
-* arctic ocean something to analyse
-* make wildfires, etc flow from model dev section.
-* main result is the model!
