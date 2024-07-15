@@ -18,3 +18,5 @@ results = Simulate_Climate(mySpec)
 ```
 You can then access the latitude grid used, temporal points, as well as the corressponding surface temperature distributions. 
 (see Sim_Result dataclass in climate.py)
+
+(plots.py demos some uses for the climate model)
